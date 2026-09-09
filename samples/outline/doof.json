@@ -1,0 +1,11 @@
+{
+  "name": "appkit-outline-sample",
+  "version": "0.1.0",
+  "id": "doof.appkit.outline",
+  "build": {
+    "target": "macos-app",
+    "executable": "DoofAppKitOutline",
+    "title": "Files — OutlineView"
+  },
+  "dependencies": {}
+}

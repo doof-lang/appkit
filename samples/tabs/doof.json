@@ -1,0 +1,11 @@
+{
+  "name": "appkit-tabs-sample",
+  "version": "0.1.0",
+  "id": "doof.appkit.tabs",
+  "build": {
+    "target": "macos-app",
+    "executable": "DoofAppKitTabs",
+    "title": "Tabbed settings"
+  },
+  "dependencies": {}
+}

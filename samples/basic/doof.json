@@ -1,0 +1,12 @@
+{
+  "name": "std-appkit-basic-sample",
+  "version": "0.1.0",
+  "license": "ISC",
+  "id": "doof.appkit.basic",
+  "build": {
+    "target": "macos-app",
+    "executable": "DoofAppKitBasic",
+    "title": "Doof AppKit"
+  },
+  "dependencies": {}
+}

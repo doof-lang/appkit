@@ -1,0 +1,33 @@
+{
+  "name": "std/appkit",
+  "version": "0.1.0",
+  "license": "ISC",
+  "build": {
+    "native": {
+      "extraCopyPaths": [
+        "native_appkit.hpp",
+        "native_group_box.hpp",
+        "native_tab_view.hpp",
+        "native_tab_methods.inc",
+        "native_outline_view.hpp",
+        "native_outline_methods.inc",
+        "native_source_view.hpp",
+        "native_source_methods.inc",
+        "native_split_view.hpp"
+      ],
+      "macos": {
+        "compilerFlags": [
+          "-fobjc-arc"
+        ],
+        "sourceFiles": [
+          "native_appkit.mm"
+        ],
+        "frameworks": [
+          "Cocoa",
+          "Foundation"
+        ]
+      }
+    }
+  },
+  "dependencies": {}
+}
