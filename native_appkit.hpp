@@ -9,6 +9,28 @@
 namespace doof_appkit {
 class NativeView {
 public:
+    static std::shared_ptr<NativeView> codeEditor(
+        const std::string& value,
+        bool lineNumbers,
+        bool wrapLines,
+        double fontSize,
+        int32_t tabWidth,
+        bool autoIndent,
+        doof::callback<void(std::string)> change,
+        doof::callback<void(int32_t, int32_t)> selectionChange,
+        doof::callback<std::string(int32_t)> hoverText);
+    void setCodeEditorText(const std::string& value);
+    std::string codeEditorText();
+    void setCodeEditorHighlights(
+        const std::shared_ptr<std::vector<int32_t>>& starts,
+        const std::shared_ptr<std::vector<int32_t>>& lengths,
+        const std::shared_ptr<std::vector<int32_t>>& styles);
+    int32_t codeEditorSelectionStart();
+    int32_t codeEditorSelectionLength();
+    void setCodeEditorSelection(int32_t start, int32_t length, bool reveal);
+    std::string codeEditorHoverText(int32_t offset);
+    void performCodeEditorNewline();
+    std::string codeEditorSnapshot();
     static std::shared_ptr<NativeView> sourceView(doof::callback<void(int32_t)> toggle);
     void setSourceLines(const std::shared_ptr<std::vector<std::string>>& lines, const std::shared_ptr<std::vector<int32_t>>& markers, int32_t currentLine, bool reveal);
     void setSourceHighlights(const std::shared_ptr<std::vector<int32_t>>& rows, const std::shared_ptr<std::vector<int32_t>>& starts, const std::shared_ptr<std::vector<int32_t>>& lengths, const std::shared_ptr<std::vector<int32_t>>& styles);

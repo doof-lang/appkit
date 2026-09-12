@@ -2,7 +2,7 @@ import { NativeView } from "./native"
 import { syncUI } from "./runtime"
 import { View, ViewElement, growingControl } from "./view"
 
-export enum SourceStyle { Plain, Keyword, String, Number, Comment, Type, Function }
+export enum SourceStyle { Plain, Keyword, String, Number, Comment, Type, Function, Error, Warning }
 
 /** UTF-8 byte range within a one-based source line. */
 export class SourceHighlight {

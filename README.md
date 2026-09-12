@@ -59,7 +59,7 @@ interface needs a different minimum track length.
 ## Native boundaries
 
 - `Text`, `TextField`, `SecureTextField`, `SearchField`, `Button`, `Checkbox`,
-  `TextArea`, `Picker`, `RadioGroup`, `ComboBox`, `DatePicker`, `ColorWell`,
+  `TextArea`, `CodeEditor`, `Picker`, `RadioGroup`, `ComboBox`, `DatePicker`, `ColorWell`,
   `SegmentedControl`, `Slider`, `Stepper`, `Switch`, `ProgressBar`, `Spinner`,
   and `Separator` are retained native controls measured intrinsically and placed by
   `std/layout`.
@@ -369,7 +369,7 @@ at a time.
 
 Standard controls retain their native roles, actions, focus, and keyboard
 behavior. Layout-only containers are omitted from the accessibility tree.
-`TextField`, `SecureTextField`, `SearchField`, `TextArea`, `Picker`,
+`TextField`, `SecureTextField`, `SearchField`, `TextArea`, `CodeEditor`, `Picker`,
 `RadioGroup`, `ComboBox`, `DatePicker`, `ColorWell`, `SegmentedControl`, and
 `Stepper` require a visible `label` and connect it as the native title element;
 placeholder text is never used as an accessible name. Components also accept
@@ -439,6 +439,38 @@ The tests exercise native AppKit objects and require macOS. Checking a sample
 validates Doof types without opening a window; running it starts an interactive
 application. See the cookbook for focused manual checks of each recipe.
 
+## Editable source views
+
+`CodeEditor` is an editable, monospaced `NSTextView` with optional one-based
+line numbers, native undo and find support, configurable wrapping, font size,
+and tab width. Auto-indentation is enabled by default: a new line preserves the
+current line's leading whitespace and gains one space-based `tabWidth` level
+after an opening `{`, `[` or `(`. Set `autoIndent=false` to disable it. Smart
+substitutions, spelling correction, and rich-text input are disabled. Text and
+selection callbacks return UTF-8-oriented values so they compose directly with
+compiler spans.
+
+```doof
+let source = "function main(): none {}"
+editor := <CodeEditor value=>source onChange=>{ source = value }
+  lineNumbers=true wrapLines=false tabWidth=2
+  hoverText={(offset): string => if offset < 8 then "Function declaration" else ""}/>
+editor.setHighlights([
+  CodeEditorHighlight { start: 0, length: 8, style: .Keyword },
+])
+editor.setSelection(CodeEditorSelection { start: 9, length: 4 })
+```
+
+`CodeEditorHighlight` and `CodeEditorSelection` use document-relative UTF-8
+byte ranges. The native boundary converts them to TextKit's UTF-16 ranges.
+The `.Error` and `.Warning` highlight styles add adaptive dotted underlines
+without replacing syntax foreground colors.
+Highlights are explicit snapshots; reapply them after text changes. Selection
+updates preserve AppKit's normal responder-chain behavior and optionally reveal
+the new selection. `hoverText` receives the UTF-8 byte offset beneath the mouse
+and returns plain text for a native multiline tooltip; return an empty string
+when there is nothing to show.
+
 ## Read-only source views
 
 `SourceView(onToggleBreakpoint)` displays virtualized, monospaced source lines
@@ -468,7 +500,7 @@ breakpoint markers and a current-line highlight. Its source remains read-only.
 
 `SourceView.setHighlights` accepts `SourceHighlight` values with one-based line
 numbers, UTF-8 byte starts/lengths, and a `SourceStyle` (keyword, string, number,
-comment, type or function). Call after `setLines`; highlights persist while line
+comment, type, function, error or warning). Call after `setLines`; highlights persist while line
 text is unchanged. The bridge converts spans to UTF-16 and uses adaptive system
 colors. Source rows and text do not select; separate accessible gutter buttons
 own breakpoint actions and display add/remove tooltips.

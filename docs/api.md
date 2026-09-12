@@ -50,6 +50,7 @@ action callback. `hidden` and `enabled` are reactive booleans.
 | `Checkbox`, `Switch` | reactive `title: string` | reactive `checked=false`; `onChange(bool)` |
 | `TextField`, `SecureTextField`, `SearchField` | reactive `label: string` | reactive `value=""`; `onChange(string)`; fixed placeholder |
 | `TextArea` | reactive `label: string` | reactive `value=""`; `onChange(string)`; `minHeight=120.0` |
+| `CodeEditor` | None | reactive `value=""`; `onChange(string)`; UTF-8 highlights and selection; line numbers, wrapping, font, tab and auto-indent configuration |
 | `Picker` | reactive `label`, `options: string[]` | reactive `selected=""`; `onChange(string)` |
 | `RadioGroup` | reactive `label`, `options`, reactive `selected: string` | `onChange(string)` |
 | `ComboBox` | reactive `label` | `options=[]`, reactive `value=""`; `onChange(string)`; allows typed text |
@@ -75,6 +76,17 @@ label. Spinner defaults to the accessibility label `Loading`.
 selection. `RadioGroup` enforces membership. `SegmentedControl` requires
 non-empty segments and an index in range, including later reactive values.
 Options, segments, ranges, and placeholders are fixed constructor inputs.
+
+`CodeEditor` is a growing, unlabeled `NSTextView` intended for source editing.
+Use `CodeEditorHighlight` with `SourceStyle` values to apply document-relative
+UTF-8 spans. `selection()` and `setSelection()` also use UTF-8 byte ranges;
+`onSelectionChange` reports native selection changes. Highlights are cleared
+by programmatic text replacement and should be reapplied by the owner. With
+`autoIndent=true` (the default), a newline copies leading whitespace and adds a
+space-based `tabWidth` level after `{`, `[` or `(`. The `.Error` and `.Warning`
+styles draw adaptive dotted underlines while preserving syntax colors.
+`hoverText` receives a UTF-8 byte offset and returns text for a native tooltip;
+return an empty string to suppress it.
 
 Numeric ranges require `minimum < maximum`. Stepper increments must be
 positive; TextArea's minimum height must be positive. Slider's `minWidth`

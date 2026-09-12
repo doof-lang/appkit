@@ -55,15 +55,22 @@ void NativeView::setSourceHighlights(const std::shared_ptr<std::vector<int32_t>>
     size_t count = std::min({rows->size(), starts->size(), lengths->size(), styles->size()});
     for (size_t i = 0; i < count; ++i) {
         int row = (*rows)[i], start = (*starts)[i], length = (*lengths)[i], style = (*styles)[i];
-        if (row < 0 || row >= (int)adapter.lines.count || start < 0 || length < 0 || style < 0 || style >= (int)colors.count) continue;
+        if (row < 0 || row >= (int)adapter.lines.count || start < 0 || length < 0 || style < 0 || style > 8) continue;
         std::string bytes = utf8(adapter.lines[row]);
         if ((size_t)start > bytes.size() || (size_t)length > bytes.size() - start) continue;
         // Compiler spans count UTF-8 bytes; AppKit attributes count UTF-16 units.
         NSString* prefix = [[NSString alloc] initWithBytes:bytes.data() length:start encoding:NSUTF8StringEncoding];
         NSString* token = [[NSString alloc] initWithBytes:bytes.data() + start length:length encoding:NSUTF8StringEncoding];
         if (!prefix || !token) continue;
-        [(NSMutableAttributedString*)result[row] addAttribute:NSForegroundColorAttributeName value:colors[style]
-            range:NSMakeRange(prefix.length, token.length)];
+        NSRange range = NSMakeRange(prefix.length, token.length);
+        if (style == 7 || style == 8) {
+            NSColor* color = style == 7 ? NSColor.systemRedColor : NSColor.systemOrangeColor;
+            NSNumber* underline = @(NSUnderlineStyleSingle | NSUnderlinePatternDot);
+            [(NSMutableAttributedString*)result[row] addAttribute:NSUnderlineStyleAttributeName value:underline range:range];
+            [(NSMutableAttributedString*)result[row] addAttribute:NSUnderlineColorAttributeName value:color range:range];
+        } else {
+            [(NSMutableAttributedString*)result[row] addAttribute:NSForegroundColorAttributeName value:colors[style] range:range];
+        }
     }
     adapter.highlighted = result;
     [adapter.table reloadData];

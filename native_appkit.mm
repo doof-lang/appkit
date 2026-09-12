@@ -24,6 +24,7 @@ static NSColor* colorFromRGBA(double red, double green, double blue, double alph
 #include "native_tab_view.hpp"
 #include "native_outline_view.hpp"
 #include "native_source_view.hpp"
+#include "native_code_editor.hpp"
 
 @interface DoofValueTarget : NSObject
 @property(nonatomic) doof::callback<void(double)> callback;
@@ -532,6 +533,7 @@ int32_t alertResponseIndex(NSModalResponse response, size_t buttonCount) {
 namespace doof_appkit {
 struct NativeView::Impl {
     DoofSourceAdapter* sourceAdapter = nil;
+    DoofCodeEditorAdapter* codeEditorAdapter = nil;
     NSView* view = nil;
     NSBox* groupBox = nil;
     DoofTabView* tabs = nil;
@@ -555,6 +557,7 @@ NativeView::~NativeView() = default;
 #include "native_tab_methods.inc"
 #include "native_outline_methods.inc"
 #include "native_source_methods.inc"
+#include "native_code_editor_methods.inc"
 
 std::shared_ptr<NativeView> NativeView::container() { auto result = std::shared_ptr<NativeView>(new NativeView()); result->impl_->view = [[DoofFlippedView alloc] initWithFrame:NSZeroRect]; return result; }
 std::shared_ptr<NativeView> NativeView::groupBox(const std::string& title) {
@@ -685,6 +688,16 @@ void NativeView::detach() { [impl_->view removeFromSuperview]; }
 void NativeView::dispose() {
     if (impl_->disposed) return;
     impl_->disposed = true;
+    if (impl_->codeEditorAdapter) {
+        impl_->codeEditorAdapter.change = {};
+        impl_->codeEditorAdapter.selectionChange = {};
+        impl_->codeEditorAdapter.hoverText = {};
+        if (impl_->codeEditorAdapter.hoverToolTip != 0) {
+            [impl_->codeEditorAdapter.textView removeToolTip:impl_->codeEditorAdapter.hoverToolTip];
+            impl_->codeEditorAdapter.hoverToolTip = 0;
+        }
+        impl_->codeEditorAdapter.textView.delegate = nil;
+    }
     if (impl_->sourceAdapter) {
         impl_->sourceAdapter.toggle = {};
         impl_->sourceAdapter.table.delegate = nil;
@@ -713,6 +726,7 @@ void NativeView::dispose() {
 }
 void NativeView::setFrame(double x, double y, double width, double height) {
     impl_->view.frame = groupBoxChildFrame(impl_->view, NSMakeRect(x, y, std::max(0.0, width), std::max(0.0, height)));
+    if (impl_->codeEditorAdapter) layoutCodeEditorTextView(impl_->codeEditorAdapter);
     if (impl_->split && !impl_->splitSized && impl_->split.subviews.count > 1 && width > 200 && height > 80) {
         // Seed every pane before asking NSSplitView to constrain dividers. Moving
         // dividers while all sibling frames are zero can collapse outer panes.

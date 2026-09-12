@@ -61,3 +61,4 @@ export { Tab, TabItem, TabView } from "./tab_view"
 export { OutlineView } from "./outline_view"
 
 export { SourceView, SourceHighlight, SourceStyle } from "./source_view"
+export { CodeEditor, CodeEditorHighlight, CodeEditorSelection } from "./code_editor"

@@ -13,6 +13,8 @@
         "native_outline_methods.inc",
         "native_source_view.hpp",
         "native_source_methods.inc",
+        "native_code_editor.hpp",
+        "native_code_editor_methods.inc",
         "native_split_view.hpp"
       ],
       "macos": {

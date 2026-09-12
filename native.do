@@ -1,4 +1,24 @@
 export import class NativeView from "native_appkit.hpp" as doof_appkit::NativeView {
+  static codeEditor(
+    value: string,
+    lineNumbers: bool,
+    wrapLines: bool,
+    fontSize: double,
+    tabWidth: int,
+    autoIndent: bool,
+    change: (value: string): none,
+    selectionChange: (start: int, length: int): none,
+    hoverText: (offset: int): string,
+  ): NativeView
+  setCodeEditorText(value: string): none
+  codeEditorText(): string
+  setCodeEditorHighlights(starts: int[], lengths: int[], styles: int[]): none
+  codeEditorSelectionStart(): int
+  codeEditorSelectionLength(): int
+  setCodeEditorSelection(start: int, length: int, reveal: bool): none
+  codeEditorHoverText(offset: int): string
+  performCodeEditorNewline(): none
+  codeEditorSnapshot(): string
   static sourceView(toggle: (line: int): none): NativeView
   setSourceLines(lines: string[], markers: int[], currentLine: int, reveal: bool): none
   setSourceHighlights(rows: int[], starts: int[], lengths: int[], styles: int[]): none
