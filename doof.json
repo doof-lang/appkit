@@ -14,6 +14,7 @@
         "native_source_view.hpp",
         "native_source_methods.inc",
         "native_code_editor.hpp",
+        "native_completion.inc",
         "native_code_editor_methods.inc",
         "native_split_view.hpp"
       ],

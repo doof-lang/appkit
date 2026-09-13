@@ -18,7 +18,8 @@ public:
         bool autoIndent,
         doof::callback<void(std::string)> change,
         doof::callback<void(int32_t, int32_t)> selectionChange,
-        doof::callback<std::string(int32_t)> hoverText);
+        doof::callback<std::string(int32_t)> hoverText,
+        doof::callback<std::string(int32_t)> completions);
     void setCodeEditorText(const std::string& value);
     std::string codeEditorText();
     void setCodeEditorHighlights(
@@ -29,7 +30,13 @@ public:
     int32_t codeEditorSelectionLength();
     void setCodeEditorSelection(int32_t start, int32_t length, bool reveal);
     std::string codeEditorHoverText(int32_t offset);
+    void completeCodeEditor();
+    void performCodeEditorCompletion(int32_t index);
+    void performCodeEditorCompletionMovement(int32_t index, int32_t movement);
+    void undoCodeEditor();
+    void redoCodeEditor();
     void performCodeEditorNewline();
+    void performCodeEditorText(std::string text);
     std::string codeEditorSnapshot();
     static std::shared_ptr<NativeView> sourceView(doof::callback<void(int32_t)> toggle);
     void setSourceLines(const std::shared_ptr<std::vector<std::string>>& lines, const std::shared_ptr<std::vector<int32_t>>& markers, int32_t currentLine, bool reveal);

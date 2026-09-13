@@ -2,7 +2,8 @@ std::shared_ptr<NativeView> NativeView::codeEditor(
     const std::string& value, bool lineNumbers, bool wrapLines, double fontSize, int32_t tabWidth, bool autoIndent,
     doof::callback<void(std::string)> change,
     doof::callback<void(int32_t, int32_t)> selectionChange,
-    doof::callback<std::string(int32_t)> hoverText) {
+    doof::callback<std::string(int32_t)> hoverText,
+    doof::callback<std::string(int32_t)> completions) {
     auto result = std::shared_ptr<NativeView>(new NativeView());
     auto scroll = [[NSScrollView alloc] initWithFrame:NSZeroRect];
     scroll.hasVerticalScroller = YES;
@@ -12,6 +13,7 @@ std::shared_ptr<NativeView> NativeView::codeEditor(
     auto text = [[DoofCodeEditorTextView alloc] initWithFrame:NSZeroRect];
     text.autoIndent = autoIndent;
     text.indentationWidth = tabWidth;
+    text.completionProvider = std::move(completions);
     text.string = ns(value);
     text.richText = NO;
     text.importsGraphics = NO;
@@ -145,6 +147,11 @@ void NativeView::performCodeEditorNewline() {
     [impl_->textView insertNewline:nil];
 }
 
+void NativeView::performCodeEditorText(std::string text) {
+    if (!impl_->codeEditorAdapter || impl_->disposed) return;
+    [impl_->textView insertText:ns(text) replacementRange:impl_->textView.selectedRange];
+}
+
 std::string NativeView::codeEditorSnapshot() {
     auto adapter = impl_->codeEditorAdapter;
     if (!adapter || impl_->disposed) return "{}";
@@ -160,4 +167,31 @@ std::string NativeView::codeEditorSnapshot() {
     };
     NSData* data = [NSJSONSerialization dataWithJSONObject:snapshot options:0 error:nil];
     return data ? utf8([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]) : "{}";
+}
+
+void NativeView::completeCodeEditor() {
+    if (!impl_->codeEditorAdapter || impl_->disposed) return;
+    [impl_->textView.window makeFirstResponder:impl_->textView];
+    [impl_->textView complete:nil];
+}
+
+void NativeView::performCodeEditorCompletion(int32_t index) {
+    performCodeEditorCompletionMovement(index, NSReturnTextMovement);
+}
+
+void NativeView::performCodeEditorCompletionMovement(int32_t index, int32_t movement) {
+    if (!impl_->codeEditorAdapter || impl_->disposed || index < 0) return;
+    auto text = (DoofCodeEditorTextView*)impl_->textView;
+    NSRange range = [text rangeForUserCompletion];
+    if (range.location == NSNotFound) return;
+    NSArray* words = [text completionsForPartialWordRange:range indexOfSelectedItem:nullptr];
+    if ((NSUInteger)index >= words.count) return;
+    [text insertCompletion:words[index] forPartialWordRange:range movement:movement isFinal:YES];
+}
+
+void NativeView::undoCodeEditor() {
+    if (impl_->codeEditorAdapter && !impl_->disposed) [impl_->textView.undoManager undo];
+}
+void NativeView::redoCodeEditor() {
+    if (impl_->codeEditorAdapter && !impl_->disposed) [impl_->textView.undoManager redo];
 }

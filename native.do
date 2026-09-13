@@ -9,6 +9,7 @@ export import class NativeView from "native_appkit.hpp" as doof_appkit::NativeVi
     change: (value: string): none,
     selectionChange: (start: int, length: int): none,
     hoverText: (offset: int): string,
+    completions: (offset: int): string,
   ): NativeView
   setCodeEditorText(value: string): none
   codeEditorText(): string
@@ -17,7 +18,13 @@ export import class NativeView from "native_appkit.hpp" as doof_appkit::NativeVi
   codeEditorSelectionLength(): int
   setCodeEditorSelection(start: int, length: int, reveal: bool): none
   codeEditorHoverText(offset: int): string
+  completeCodeEditor(): none
+  performCodeEditorCompletion(index: int): none
+  performCodeEditorCompletionMovement(index: int, movement: int): none
+  undoCodeEditor(): none
+  redoCodeEditor(): none
   performCodeEditorNewline(): none
+  performCodeEditorText(text: string): none
   codeEditorSnapshot(): string
   static sourceView(toggle: (line: int): none): NativeView
   setSourceLines(lines: string[], markers: int[], currentLine: int, reveal: bool): none

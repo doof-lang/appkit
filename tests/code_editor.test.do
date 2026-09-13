@@ -3,6 +3,51 @@ import { parseJsonValue } from "std/json"
 
 import { CodeEditor, CodeEditorHighlight, CodeEditorSelection } from "../code_editor"
 
+export function testCodeEditorCompletionDoesNotAcceptWhenTypingContinues(): none {
+  editor := CodeEditor{
+    value: "Po",
+    completions: (offset): string => "{\"source\":\"Po\",\"items\":[{\"label\":\"Point\",\"detail\":\"\",\"text\":\"Point\",\"start\":0,\"end\":2,\"edits\":[]}]}",
+  }
+  editor.setSelection(CodeEditorSelection { start: 2, length: 0 })
+  // NSOtherTextMovement (0) finalizes the popup as an ordinary key resumes typing.
+  editor.asView().nativeView().performCodeEditorCompletionMovement(0, 0)
+  Assert.equal(editor.text(), "Po")
+  editor.asView().nativeView().performCodeEditorText("i")
+  Assert.equal(editor.text(), "Poi")
+  editor.asView().dispose()
+}
+
+export function testCodeEditorCompletionAcceptsReturnAndTab(): none {
+  for movement of [16, 17] {
+    editor := CodeEditor{
+      value: "Po",
+      completions: (offset): string => "{\"source\":\"Po\",\"items\":[{\"label\":\"Point\",\"detail\":\"\",\"text\":\"Point\",\"start\":0,\"end\":2,\"edits\":[]}]}",
+    }
+    editor.setSelection(CodeEditorSelection { start: 2, length: 0 })
+    editor.asView().nativeView().performCodeEditorCompletionMovement(0, movement)
+    Assert.equal(editor.text(), "Point")
+    editor.asView().dispose()
+  }
+}
+
+export function testCodeEditorCompletionRejectsStaleSnapshotsAndDisposesProvider(): none {
+  let queries = 0
+  editor := CodeEditor{
+    value: "sub",
+    completions: (offset): string => {
+      queries += 1
+      return "{\"source\":\"old\",\"start\":0,\"end\":3,\"items\":[{\"label\":\"substring\",\"detail\":\"\",\"text\":\"substring\",\"start\":0,\"end\":3,\"edits\":[]}]}"
+    },
+  }
+  editor.setSelection(CodeEditorSelection { start: 3, length: 0 })
+  editor.asView().nativeView().performCodeEditorCompletion(0)
+  Assert.equal(editor.text(), "sub")
+  Assert.equal(queries, 1)
+  editor.asView().dispose()
+  editor.asView().nativeView().performCodeEditorCompletion(0)
+  Assert.equal(queries, 1)
+}
+
 export function testCodeEditorTextHighlightsAndUtf8Selection(): none {
   editor := CodeEditor{value: "let tool = \"工具🙂\"", lineNumbers: true, wrapLines: false, tabWidth: 2}
   Assert.equal(editor.text(), "let tool = \"工具🙂\"")
@@ -81,4 +126,42 @@ export function testCodeEditorResolvesHoverTextAtUtf8Offsets(): none {
   Assert.equal(native.codeEditorHoverText(100), "")
   editor.asView().dispose()
   Assert.equal(native.codeEditorHoverText(11), "")
+}
+
+export function testCodeEditorOutdentsClosingBraceOneLevel(): none {
+  editor := CodeEditor{value: "if x < 12 {\n  println(\"do the thing\")", tabWidth: 2}
+  native := editor.asView().nativeView()
+  editor.setSelection(CodeEditorSelection { start: editor.text().length, length: 0 })
+  native.performCodeEditorNewline()
+  native.performCodeEditorText("}")
+  Assert.equal(editor.text(), "if x < 12 {\n  println(\"do the thing\")\n}")
+  Assert.equal(editor.selection().start, editor.text().length)
+
+  for source of ["    ", "\t\t", " ", "", "  println(\"🙂\")"] {
+    editor.setText(source)
+    editor.setSelection(CodeEditorSelection { start: source.length, length: 0 })
+    native.performCodeEditorText("}")
+    expected := case source {
+      "    " -> "  }"
+      "\t\t" -> "\t}"
+      " " -> "}"
+      "" -> "}"
+      _ -> "${source}}"
+    }
+    Assert.equal(editor.text(), expected)
+    Assert.equal(editor.selection().start, expected.length)
+  }
+  editor.setText("    body")
+  editor.setSelection(CodeEditorSelection { start: 4, length: 4 })
+  native.performCodeEditorText("}")
+  Assert.equal(editor.text(), "    }")
+  editor.asView().dispose()
+}
+
+export function testCodeEditorCanDisableClosingBraceOutdent(): none {
+  editor := CodeEditor{value: "  ", autoIndent: false}
+  editor.setSelection(CodeEditorSelection { start: 2, length: 0 })
+  editor.asView().nativeView().performCodeEditorText("}")
+  Assert.equal(editor.text(), "  }")
+  editor.asView().dispose()
 }

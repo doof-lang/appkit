@@ -445,7 +445,8 @@ application. See the cookbook for focused manual checks of each recipe.
 line numbers, native undo and find support, configurable wrapping, font size,
 and tab width. Auto-indentation is enabled by default: a new line preserves the
 current line's leading whitespace and gains one space-based `tabWidth` level
-after an opening `{`, `[` or `(`. Set `autoIndent=false` to disable it. Smart
+after an opening `{`, `[` or `(`. Typing `}` after only leading whitespace
+removes one indentation level (up to `tabWidth` spaces, or one trailing tab). Set `autoIndent=false` to disable it. Smart
 substitutions, spelling correction, and rich-text input are disabled. Text and
 selection callbacks return UTF-8-oriented values so they compose directly with
 compiler spans.

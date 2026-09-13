@@ -31,9 +31,40 @@ static NSDictionary<NSAttributedStringKey, id>* codeEditorBaseAttributes(double 
 @interface DoofCodeEditorTextView : NSTextView
 @property(nonatomic) BOOL autoIndent;
 @property(nonatomic) int32_t indentationWidth;
+@property(nonatomic) doof::callback<std::string(int32_t)> completionProvider;
+@property(nonatomic, strong) NSDictionary* completionSnapshot;
+@property(nonatomic) NSUInteger completionGeneration;
 @end
 
 @implementation DoofCodeEditorTextView
+#include "native_completion.inc"
+// Replace the indentation and brace together so native undo treats them as one edit.
+- (void)insertText:(id)text replacementRange:(NSRange)replacementRange {
+    NSString* insertion = [text isKindOfClass:NSAttributedString.class] ? [text string] : text;
+    NSRange selected = replacementRange.location == NSNotFound ? self.selectedRange : replacementRange;
+    NSString* value = self.string ?: @"";
+    if (self.autoIndent && [insertion isEqualToString:@"}"] && selected.length == 0 &&
+        selected.location != NSNotFound && selected.location <= value.length) {
+        NSRange line = [value lineRangeForRange:NSMakeRange(selected.location, 0)];
+        NSUInteger start = line.location;
+        while (start < selected.location) {
+            unichar character = [value characterAtIndex:start];
+            if (character != ' ' && character != '\t') break;
+            start += 1;
+        }
+        if (start == selected.location && start > line.location) {
+            NSUInteger removed = 0;
+            while (start > line.location && removed < MAX(1, self.indentationWidth)) {
+                unichar character = [value characterAtIndex:--start];
+                removed += 1;
+                if (character == '\t') break;
+            }
+            selected = NSMakeRange(start, selected.location - start);
+        }
+    }
+    [super insertText:text replacementRange:selected];
+    [self scheduleCompletion:insertion];
+}
 - (void)insertNewline:(id)sender {
     if (!self.autoIndent) {
         [super insertNewline:sender];

@@ -88,6 +88,15 @@ styles draw adaptive dotted underlines while preserving syntax colors.
 `hoverText` receives a UTF-8 byte offset and returns text for a native tooltip;
 return an empty string to suppress it.
 
+`completions(offset)` returns a JSON snapshot for native completion. The payload
+contains `source` (the exact document text) and `items`. Each item has `label`,
+`detail`, `text`, UTF-8 `start`/`end`, and an `edits` array of additional
+`{start, end, text}` edits such as imports. The source guard rejects stale
+suggestions. Ranges must not overlap; edits are applied in reverse order and
+grouped for undo. `complete()` opens the native list; typing a dot or at least
+two identifier characters also opens it. Return an empty string or empty items
+to suppress suggestions. The provider is released on disposal.
+
 Numeric ranges require `minimum < maximum`. Stepper increments must be
 positive; TextArea's minimum height must be positive. Slider's `minWidth`
 and `grow` must be non-negative. `Color` has `red`, `green`, `blue`, and

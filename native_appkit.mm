@@ -692,6 +692,7 @@ void NativeView::dispose() {
         impl_->codeEditorAdapter.change = {};
         impl_->codeEditorAdapter.selectionChange = {};
         impl_->codeEditorAdapter.hoverText = {};
+        ((DoofCodeEditorTextView*)impl_->textView).completionProvider = {};
         if (impl_->codeEditorAdapter.hoverToolTip != 0) {
             [impl_->codeEditorAdapter.textView removeToolTip:impl_->codeEditorAdapter.hoverToolTip];
             impl_->codeEditorAdapter.hoverToolTip = 0;

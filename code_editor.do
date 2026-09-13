@@ -26,6 +26,7 @@ export class CodeEditor implements ViewElement {
     onChange: (value: string): none = (value): none => {},
     onSelectionChange: (selection: CodeEditorSelection): none = (selection): none => {},
     hoverText: (offset: int): string = (offset): string => "",
+    completions: (offset: int): string = (offset): string => "",
     lineNumbers: bool = true,
     wrapLines: bool = false,
     fontSize: double = 13.0,
@@ -49,6 +50,7 @@ export class CodeEditor implements ViewElement {
         syncUI()
       },
       hoverText,
+      completions,
     )
     content := growingControl(native, minHeight)
       .enabled(enabled)
@@ -61,6 +63,7 @@ export class CodeEditor implements ViewElement {
   asView(): View => content
   text(): string => native.codeEditorText()
   setText(value: string): none { native.setCodeEditorText(value) }
+  complete(): none { native.completeCodeEditor() }
 
   selection(): CodeEditorSelection => CodeEditorSelection {
     start: native.codeEditorSelectionStart(),
