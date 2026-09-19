@@ -1,6 +1,6 @@
 {
   "name": "appkit-tabs-sample",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "id": "doof.appkit.tabs",
   "build": {
     "target": "macos-app",

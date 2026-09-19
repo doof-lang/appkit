@@ -325,48 +325,48 @@ export function testNativeMenusPreserveRolesActionsStateAndCallbacks(): none {
     HelpMenu([MenuItem("Guide", (): none => {})]),
   ])
 
-  root := try! parseJsonValue(app.menuSnapshot()) as JsonObject
-  menus := try! root.get("menus")! as JsonValue[]
+  root := try! parseJsonValue(app.menuSnapshot()) as SerialObject
+  menus := try! root.get("menus")! as SerialValue[]
   Assert.equal(menus.length, 5)
 
-  applicationMenu := try! menus[0] as JsonObject
+  applicationMenu := try! menus[0] as SerialObject
   Assert.equal(applicationMenu.get("role")!, "application")
   Assert.isTrue((try! applicationMenu.get("title")! as string).length > 0)
-  applicationItems := try! applicationMenu.get("children")! as JsonValue[]
-  about := try! applicationItems[0] as JsonObject
+  applicationItems := try! applicationMenu.get("children")! as SerialValue[]
+  about := try! applicationItems[0] as SerialObject
   Assert.stringContains(try! about.get("title")! as string, "About ")
   Assert.equal(about.get("action")!, "orderFrontStandardAboutPanel:")
-  services := try! applicationItems[2] as JsonObject
+  services := try! applicationItems[2] as SerialObject
   Assert.equal(services.get("role")!, "services")
-  hideOthers := try! applicationItems[5] as JsonObject
+  hideOthers := try! applicationItems[5] as SerialObject
   Assert.equal(hideOthers.get("title")!, "Hide Others")
 
-  editMenu := try! menus[1] as JsonObject
-  editItems := try! editMenu.get("children")! as JsonValue[]
-  copy := try! editItems[4] as JsonObject
+  editMenu := try! menus[1] as SerialObject
+  editItems := try! editMenu.get("children")! as SerialValue[]
+  copy := try! editItems[4] as SerialObject
   Assert.equal(copy.get("action")!, "copy:")
   Assert.equal(copy.get("key")!, "c")
 
-  fileMenu := try! menus[2] as JsonObject
-  fileItems := try! fileMenu.get("children")! as JsonValue[]
-  pinned := try! fileItems[0] as JsonObject
+  fileMenu := try! menus[2] as SerialObject
+  fileItems := try! fileMenu.get("children")! as SerialValue[]
+  pinned := try! fileItems[0] as SerialObject
   Assert.equal(pinned.get("modifiers")!, 9)
   Assert.equal(pinned.get("enabled")!, false)
   Assert.equal(pinned.get("checked")!, true)
 
-  windowMenu := try! menus[3] as JsonObject
-  helpMenu := try! menus[4] as JsonObject
+  windowMenu := try! menus[3] as SerialObject
+  helpMenu := try! menus[4] as SerialObject
   Assert.equal(windowMenu.get("role")!, "window")
   Assert.equal(helpMenu.get("role")!, "help")
 
   available = true
   pinnedState = false
   syncUI()
-  updatedRoot := try! parseJsonValue(app.menuSnapshot()) as JsonObject
-  updatedMenus := try! updatedRoot.get("menus")! as JsonValue[]
-  updatedFile := try! updatedMenus[2] as JsonObject
-  updatedItems := try! updatedFile.get("children")! as JsonValue[]
-  updatedPinned := try! updatedItems[0] as JsonObject
+  updatedRoot := try! parseJsonValue(app.menuSnapshot()) as SerialObject
+  updatedMenus := try! updatedRoot.get("menus")! as SerialValue[]
+  updatedFile := try! updatedMenus[2] as SerialObject
+  updatedItems := try! updatedFile.get("children")! as SerialValue[]
+  updatedPinned := try! updatedItems[0] as SerialObject
   Assert.equal(updatedPinned.get("enabled")!, true)
   Assert.equal(updatedPinned.get("checked")!, false)
 
@@ -380,13 +380,13 @@ export function testNativeWindowMenuListsShownWindows(): none {
   window := NativeWindow.create("Menu Test Window", 240, 160, true)
   window.show()
 
-  root := try! parseJsonValue(app.menuSnapshot()) as JsonObject
-  menus := try! root.get("menus")! as JsonValue[]
-  windowMenu := try! menus[3] as JsonObject
-  items := try! windowMenu.get("children")! as JsonValue[]
+  root := try! parseJsonValue(app.menuSnapshot()) as SerialObject
+  menus := try! root.get("menus")! as SerialValue[]
+  windowMenu := try! menus[3] as SerialObject
+  items := try! windowMenu.get("children")! as SerialValue[]
   let found = false
   for value of items {
-    item := value as JsonObject else { continue }
+    item := value as SerialObject else { continue }
     title := item.get("title")! as string else { continue }
     if title == "Menu Test Window" { found = true }
   }

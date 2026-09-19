@@ -18,14 +18,14 @@ function tree(): Node[] {
 function outline(rows: Node[]): OutlineView<Node> {
   return OutlineView<Node>{rows, rowKey: =>row.id, children: =>row.nodes, label: =>row.name}
 }
-function snapshot(view: OutlineView<Node>): JsonObject {
-  return try! parseJsonValue(view.asView().nativeView().outlineSnapshot()) as JsonObject
+function snapshot(view: OutlineView<Node>): SerialObject {
+  return try! parseJsonValue(view.asView().nativeView().outlineSnapshot()) as SerialObject
 }
 function visibleKeys(view: OutlineView<Node>): readonly string[] {
-  rows := try! snapshot(view).get("rows")! as JsonValue[]
+  rows := try! snapshot(view).get("rows")! as SerialValue[]
   let keys: string[] = []
   for value of rows {
-    row := try! value as JsonObject
+    row := try! value as SerialObject
     keys.push(try! row.get("key")! as string)
   }
   return keys.drainToReadonly()
