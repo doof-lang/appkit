@@ -22,7 +22,7 @@ function snapshot(view: OutlineView<Node>): SerialObject {
   return try! parseJsonValue(view.asView().nativeView().outlineSnapshot()) as SerialObject
 }
 function visibleKeys(view: OutlineView<Node>): readonly string[] {
-  rows := try! snapshot(view).get("rows")! as SerialValue[]
+  rows := try! snapshot(view).get("rows")! as readonly SerialValue[]
   let keys: string[] = []
   for value of rows {
     row := try! value as SerialObject

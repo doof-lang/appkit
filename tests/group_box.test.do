@@ -19,7 +19,7 @@ function number(object: SerialObject, key: string): double {
 
 function assertNativeChildrenFit(view: View, count: int): none {
   data := snapshot(view)
-  children := try! data.get("children")! as SerialValue[]
+  children := try! data.get("children")! as readonly SerialValue[]
   Assert.equal(children.length, count)
   Assert.equal(data.get("flipped")!, true)
   for value of children {
@@ -47,7 +47,7 @@ export function testGroupBoxMeasuresNativeChromeAndPlacesChildren(): none {
     first.layoutNode().layoutBounds().bottom() + 12.0)
   assertNativeChildrenFit(box, 2)
   data := snapshot(box)
-  children := try! data.get("children")! as SerialValue[]
+  children := try! data.get("children")! as readonly SerialValue[]
   child := try! children[0] as SerialObject
   Assert.approxEqual(number(child, "x"), 0.0)
   Assert.approxEqual(number(child, "y"), 0.0)

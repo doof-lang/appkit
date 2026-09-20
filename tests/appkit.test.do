@@ -326,13 +326,13 @@ export function testNativeMenusPreserveRolesActionsStateAndCallbacks(): none {
   ])
 
   root := try! parseJsonValue(app.menuSnapshot()) as SerialObject
-  menus := try! root.get("menus")! as SerialValue[]
+  menus := try! root.get("menus")! as readonly SerialValue[]
   Assert.equal(menus.length, 5)
 
   applicationMenu := try! menus[0] as SerialObject
   Assert.equal(applicationMenu.get("role")!, "application")
   Assert.isTrue((try! applicationMenu.get("title")! as string).length > 0)
-  applicationItems := try! applicationMenu.get("children")! as SerialValue[]
+  applicationItems := try! applicationMenu.get("children")! as readonly SerialValue[]
   about := try! applicationItems[0] as SerialObject
   Assert.stringContains(try! about.get("title")! as string, "About ")
   Assert.equal(about.get("action")!, "orderFrontStandardAboutPanel:")
@@ -342,13 +342,13 @@ export function testNativeMenusPreserveRolesActionsStateAndCallbacks(): none {
   Assert.equal(hideOthers.get("title")!, "Hide Others")
 
   editMenu := try! menus[1] as SerialObject
-  editItems := try! editMenu.get("children")! as SerialValue[]
+  editItems := try! editMenu.get("children")! as readonly SerialValue[]
   copy := try! editItems[4] as SerialObject
   Assert.equal(copy.get("action")!, "copy:")
   Assert.equal(copy.get("key")!, "c")
 
   fileMenu := try! menus[2] as SerialObject
-  fileItems := try! fileMenu.get("children")! as SerialValue[]
+  fileItems := try! fileMenu.get("children")! as readonly SerialValue[]
   pinned := try! fileItems[0] as SerialObject
   Assert.equal(pinned.get("modifiers")!, 9)
   Assert.equal(pinned.get("enabled")!, false)
@@ -363,9 +363,9 @@ export function testNativeMenusPreserveRolesActionsStateAndCallbacks(): none {
   pinnedState = false
   syncUI()
   updatedRoot := try! parseJsonValue(app.menuSnapshot()) as SerialObject
-  updatedMenus := try! updatedRoot.get("menus")! as SerialValue[]
+  updatedMenus := try! updatedRoot.get("menus")! as readonly SerialValue[]
   updatedFile := try! updatedMenus[2] as SerialObject
-  updatedItems := try! updatedFile.get("children")! as SerialValue[]
+  updatedItems := try! updatedFile.get("children")! as readonly SerialValue[]
   updatedPinned := try! updatedItems[0] as SerialObject
   Assert.equal(updatedPinned.get("enabled")!, true)
   Assert.equal(updatedPinned.get("checked")!, false)
@@ -381,9 +381,9 @@ export function testNativeWindowMenuListsShownWindows(): none {
   window.show()
 
   root := try! parseJsonValue(app.menuSnapshot()) as SerialObject
-  menus := try! root.get("menus")! as SerialValue[]
+  menus := try! root.get("menus")! as readonly SerialValue[]
   windowMenu := try! menus[3] as SerialObject
-  items := try! windowMenu.get("children")! as SerialValue[]
+  items := try! windowMenu.get("children")! as readonly SerialValue[]
   let found = false
   for value of items {
     item := value as SerialObject else { continue }
