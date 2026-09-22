@@ -184,8 +184,7 @@ void NativeView::performCodeEditorCompletionMovement(int32_t index, int32_t move
     auto text = (DoofCodeEditorTextView*)impl_->textView;
     NSRange range = [text rangeForUserCompletion];
     if (range.location == NSNotFound) return;
-    NSInteger selectedItem = -1;
-    NSArray* words = [text completionsForPartialWordRange:range indexOfSelectedItem:&selectedItem];
+    NSArray* words = [text completionsForPartialWordRange:range indexOfSelectedItem:nullptr];
     if ((NSUInteger)index >= words.count) return;
     [text insertCompletion:words[index] forPartialWordRange:range movement:movement isFinal:YES];
 }
