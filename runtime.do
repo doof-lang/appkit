@@ -65,7 +65,7 @@ class ReactiveRuntime {
   }
 }
 
-readonly runtime = ReactiveRuntime {}
+runtime := ReactiveRuntime {}
 
 export function registerLayoutInvalidator(invalidator: (): none): none { runtime.addInvalidator(invalidator) }
 export function syncUI(): none { runtime.sync() }

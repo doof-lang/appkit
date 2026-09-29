@@ -17,7 +17,7 @@ class ApplicationHolder {
   let hasConfiguredMenus = false
   let hasInstalledDefaultMenus = false
 }
-readonly applicationHolder = ApplicationHolder {}
+applicationHolder := ApplicationHolder {}
 
 function application(): NativeApplication {
   if applicationHolder.value == none { applicationHolder.value = NativeApplication.shared() }
