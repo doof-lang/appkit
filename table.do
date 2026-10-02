@@ -157,7 +157,7 @@ class TableData<Row> {
 
   changeDate(row: int, column: int, value: string): none {
     if row < 0 || row >= rows.length || column < 0 || column >= columns.length { return }
-    columns[column].dateChanged(rows[row], try! Date.parse(value))
+    columns[column].dateChanged(rows[row], Date.parse(value)!)
     syncUI()
   }
 }

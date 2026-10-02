@@ -22,9 +22,9 @@ class Person {
 function main(): none {
   let people = [
     Person { id: "ada", name: "Ada Lovelace", email: "ada@example.com", active: true,
-      score: 98.5, joined: try! Date.parse("2025-03-12") },
+      score: 98.5, joined: Date.parse("2025-03-12")! },
     Person { id: "grace", name: "Grace Hopper", email: "grace@example.com", active: true,
-      score: 94.0, joined: try! Date.parse("2024-11-09") },
+      score: 94.0, joined: Date.parse("2024-11-09")! },
   ]
 
   table := <Table<Person> rows={people} rowKey=>row.id>
@@ -48,7 +48,7 @@ function main(): none {
         email: "person${people.length + 1}@example.com",
         active: false,
         score: 0.0,
-        joined: try! Date.parse("2026-09-03"),
+        joined: Date.parse("2026-09-03")!,
       })
       table.reload(people)
     }/>

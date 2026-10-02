@@ -19,14 +19,14 @@ function outline(rows: Node[]): OutlineView<Node> {
   return OutlineView<Node>{rows, rowKey: =>row.id, children: =>row.nodes, label: =>row.name}
 }
 function snapshot(view: OutlineView<Node>): SerialObject {
-  return try! parseJsonValue(view.asView().nativeView().outlineSnapshot()) as SerialObject
+  return (parseJsonValue(view.asView().nativeView().outlineSnapshot()) as SerialObject)!
 }
 function visibleKeys(view: OutlineView<Node>): readonly string[] {
-  rows := try! snapshot(view).get("rows")! as readonly SerialValue[]
+  rows := (snapshot(view).get("rows")! as readonly SerialValue[])!
   let keys: string[] = []
   for value of rows {
-    row := try! value as SerialObject
-    keys.push(try! row.get("key")! as string)
+    row := (value as SerialObject)!
+    keys.push((row.get("key")! as string)!)
   }
   return keys.drainToReadonly()
 }
@@ -111,7 +111,7 @@ export function testOutlineViewInvalidTreesDoNotReplaceLiveData(): none {
     _: Success -> Assert.fail("expected cycle error")
     failure: Failure -> Assert.stringContains(failure.error, "cycle")
   }
-  try! cycle.nodes.pop()
+  cycle.nodes.pop()!
   case catchPanic(=> view.reload([Node { id: "", name: "Empty key" }])) {
     _: Success -> Assert.fail("expected empty key error")
     failure: Failure -> Assert.stringContains(failure.error, "empty")

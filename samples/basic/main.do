@@ -60,7 +60,7 @@ function main(): none {
   let notes = ""
   let delivery = "Email"
   let city = "Sydney"
-  let chosenDate = try! Date.create(2026, 9, 3)
+  let chosenDate = Date.create(2026, 9, 3)!
   let accent = Color { red: 0.2, green: 0.45, blue: 0.9 }
 
   toolbar := <Toolbar displayMode=.IconOnly>

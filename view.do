@@ -97,7 +97,7 @@ export class View {
     children = []
     ownedContent = []
     paneRoots = []
-    while node.children.length > 0 { try! node.children.pop() }
+    while node.children.length > 0 { node.children.pop()! }
     native.dispose()
   }
 
@@ -123,7 +123,7 @@ export class View {
 
   prepareLayout(): none {
     if disposed { return }
-    while node.children.length > 0 { try! node.children.pop() }
+    while node.children.length > 0 { node.children.pop()! }
     if kind == KIND_SPLIT { configureSplit(); return }
     if kind == KIND_SCROLL { return }
     for child of children {
@@ -156,7 +156,7 @@ export class View {
     }
     owner := ViewReference { view: this }
     native.setPaneLayoutHandler((index: int, width: double, height: double): none => {
-      _ := owner.view?.placePane(index, width, height) else { }
+      owner.view?.placePane(index, width, height)
     })
   }
 
@@ -180,12 +180,12 @@ function createView(native: NativeView, style: LayoutStyle, kind: int, measured:
   view := View { native, node, kind, ownedContent }
   owner := ViewReference { view }
   node.onPlace = (placement): none => {
-    _ := owner.view?.place(
+    owner.view?.place(
       placement.layoutBounds.x,
       placement.layoutBounds.y,
       placement.layoutBounds.width,
       placement.layoutBounds.height,
-    ) else { }
+    )
   }
   return view
 }

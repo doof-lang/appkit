@@ -83,12 +83,12 @@ export function testCodeEditorValidatesConfigurationAndRanges(): none {
 
 export function testCodeEditorNativeConfigurationSnapshot(): none {
   editor := CodeEditor{value: "hello", lineNumbers: false, wrapLines: true, fontSize: 15.0, tabWidth: 8}
-  snapshot := try! parseJsonValue(editor.asView().nativeView().codeEditorSnapshot()) as SerialObject
+  snapshot := (parseJsonValue(editor.asView().nativeView().codeEditorSnapshot()) as SerialObject)!
   Assert.equal(snapshot.get("text")!, "hello")
   Assert.equal(snapshot.get("lineNumbers")!, false)
   Assert.equal(snapshot.get("wrapLines")!, true)
-  Assert.approxEqual(try! snapshot.get("fontSize")! as double, 15.0)
-  Assert.approxEqual(try! snapshot.get("tabWidth")! as double, 8.0)
+  Assert.approxEqual((snapshot.get("fontSize")! as double)!, 15.0)
+  Assert.approxEqual((snapshot.get("tabWidth")! as double)!, 8.0)
   Assert.equal(snapshot.get("autoIndent")!, true)
   editor.asView().dispose()
 }

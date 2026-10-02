@@ -9,14 +9,14 @@ function place(view: View, width: double = 500.0, height: double = 300.0): none 
   layout(view.layoutNode(), LayoutRect { width, height })
 }
 function snapshot(view: View): SerialObject {
-  return try! parseJsonValue(view.nativeView().tabSnapshot()) as SerialObject
+  return (parseJsonValue(view.nativeView().tabSnapshot()) as SerialObject)!
 }
-function number(value: SerialObject, key: string): double { return try! value.get(key)! as double }
+function number(value: SerialObject, key: string): double { return (value.get(key)! as double)! }
 function selected(view: View): int { return int(number(snapshot(view), "selectedIndex")) }
 function assertPage(view: View, index: int): none {
-  items := try! snapshot(view).get("items")! as readonly SerialValue[]
+  items := (snapshot(view).get("items")! as readonly SerialValue[])!
   for i of 0..<items.length {
-    item := try! items[i] as SerialObject
+    item := (items[i] as SerialObject)!
     Assert.equal(item.get("attached")!, i == index)
     Assert.equal(item.get("flipped")!, true)
     if i == index {
@@ -86,8 +86,8 @@ export function testTabViewMeasuresAllPagesAndReactiveTitles(): none {
   title = "A very long tab label that contributes to the tab strip minimum width"
   syncUI()
   Assert.isTrue(measureLayout(tabs.layoutNode()).width > before.width)
-  items := try! snapshot(tabs).get("items")! as readonly SerialValue[]
-  item := try! items[0] as SerialObject
+  items := (snapshot(tabs).get("items")! as readonly SerialValue[])!
+  item := (items[0] as SerialObject)!
   Assert.equal(item.get("title")!, title)
 }
 

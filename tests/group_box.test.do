@@ -10,20 +10,20 @@ function place(view: View, width: double = 400.0, height: double = 240.0): none 
 }
 
 function snapshot(view: View): SerialObject {
-  return try! parseJsonValue(view.nativeView().groupBoxSnapshot()) as SerialObject
+  return (parseJsonValue(view.nativeView().groupBoxSnapshot()) as SerialObject)!
 }
 
 function number(object: SerialObject, key: string): double {
-  return try! object.get(key)! as double
+  return (object.get(key)! as double)!
 }
 
 function assertNativeChildrenFit(view: View, count: int): none {
   data := snapshot(view)
-  children := try! data.get("children")! as readonly SerialValue[]
+  children := (data.get("children")! as readonly SerialValue[])!
   Assert.equal(children.length, count)
   Assert.equal(data.get("flipped")!, true)
   for value of children {
-    child := try! value as SerialObject
+    child := (value as SerialObject)!
     Assert.isTrue(number(child, "x") >= -0.01)
     Assert.isTrue(number(child, "y") >= -0.01)
     Assert.isTrue(number(child, "x") + number(child, "width") <= number(data, "contentWidth") + 0.01)
@@ -47,8 +47,8 @@ export function testGroupBoxMeasuresNativeChromeAndPlacesChildren(): none {
     first.layoutNode().layoutBounds().bottom() + 12.0)
   assertNativeChildrenFit(box, 2)
   data := snapshot(box)
-  children := try! data.get("children")! as readonly SerialValue[]
-  child := try! children[0] as SerialObject
+  children := (data.get("children")! as readonly SerialValue[])!
+  child := (children[0] as SerialObject)!
   Assert.approxEqual(number(child, "x"), 0.0)
   Assert.approxEqual(number(child, "y"), 0.0)
   Assert.equal(data.get("role")!, "AXGroup")

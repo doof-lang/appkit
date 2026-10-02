@@ -89,7 +89,7 @@ export function DatePicker(
   control := measuredControl(native)
   bindDate(value, (next): none => native.setDate(next.toISOString()))
   native.setAction((next: string, checked: bool): none => {
-    onChange(try! Date.parse(next))
+    onChange(Date.parse(next)!)
     syncUI()
   })
   native.setTitleElement(labelView.native)
@@ -136,7 +136,7 @@ function initialDate(value: Date | ((): Date)): Date {
 function bindDate(value: Date | ((): Date), apply: (value: Date): none): none {
   dateValue := value as Date else {
     getter := value as ((): Date) else { panic("Reactive date value is invalid") }
-    bindString((): string => getter().toISOString(), (next): none => apply(try! Date.parse(next)))
+    bindString((): string => getter().toISOString(), (next): none => apply(Date.parse(next)!))
     return
   }
   apply(dateValue)

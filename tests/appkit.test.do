@@ -40,7 +40,7 @@ class TableTestRow {
   name: string
   active: bool
   let score: double = 0.0
-  let joined: Date = try! Date.parse("2026-01-01")
+  let joined: Date = Date.parse("2026-01-01")!
 }
 
 export function testImageCanvasParticipatesInLayout(): none {
@@ -325,48 +325,48 @@ export function testNativeMenusPreserveRolesActionsStateAndCallbacks(): none {
     HelpMenu([MenuItem("Guide", (): none => {})]),
   ])
 
-  root := try! parseJsonValue(app.menuSnapshot()) as SerialObject
-  menus := try! root.get("menus")! as readonly SerialValue[]
+  root := (parseJsonValue(app.menuSnapshot()) as SerialObject)!
+  menus := (root.get("menus")! as readonly SerialValue[])!
   Assert.equal(menus.length, 5)
 
-  applicationMenu := try! menus[0] as SerialObject
+  applicationMenu := (menus[0] as SerialObject)!
   Assert.equal(applicationMenu.get("role")!, "application")
-  Assert.isTrue((try! applicationMenu.get("title")! as string).length > 0)
-  applicationItems := try! applicationMenu.get("children")! as readonly SerialValue[]
-  about := try! applicationItems[0] as SerialObject
-  Assert.stringContains(try! about.get("title")! as string, "About ")
+  Assert.isTrue(((applicationMenu.get("title")! as string)!).length > 0)
+  applicationItems := (applicationMenu.get("children")! as readonly SerialValue[])!
+  about := (applicationItems[0] as SerialObject)!
+  Assert.stringContains((about.get("title")! as string)!, "About ")
   Assert.equal(about.get("action")!, "orderFrontStandardAboutPanel:")
-  services := try! applicationItems[2] as SerialObject
+  services := (applicationItems[2] as SerialObject)!
   Assert.equal(services.get("role")!, "services")
-  hideOthers := try! applicationItems[5] as SerialObject
+  hideOthers := (applicationItems[5] as SerialObject)!
   Assert.equal(hideOthers.get("title")!, "Hide Others")
 
-  editMenu := try! menus[1] as SerialObject
-  editItems := try! editMenu.get("children")! as readonly SerialValue[]
-  copy := try! editItems[4] as SerialObject
+  editMenu := (menus[1] as SerialObject)!
+  editItems := (editMenu.get("children")! as readonly SerialValue[])!
+  copy := (editItems[4] as SerialObject)!
   Assert.equal(copy.get("action")!, "copy:")
   Assert.equal(copy.get("key")!, "c")
 
-  fileMenu := try! menus[2] as SerialObject
-  fileItems := try! fileMenu.get("children")! as readonly SerialValue[]
-  pinned := try! fileItems[0] as SerialObject
+  fileMenu := (menus[2] as SerialObject)!
+  fileItems := (fileMenu.get("children")! as readonly SerialValue[])!
+  pinned := (fileItems[0] as SerialObject)!
   Assert.equal(pinned.get("modifiers")!, 9)
   Assert.equal(pinned.get("enabled")!, false)
   Assert.equal(pinned.get("checked")!, true)
 
-  windowMenu := try! menus[3] as SerialObject
-  helpMenu := try! menus[4] as SerialObject
+  windowMenu := (menus[3] as SerialObject)!
+  helpMenu := (menus[4] as SerialObject)!
   Assert.equal(windowMenu.get("role")!, "window")
   Assert.equal(helpMenu.get("role")!, "help")
 
   available = true
   pinnedState = false
   syncUI()
-  updatedRoot := try! parseJsonValue(app.menuSnapshot()) as SerialObject
-  updatedMenus := try! updatedRoot.get("menus")! as readonly SerialValue[]
-  updatedFile := try! updatedMenus[2] as SerialObject
-  updatedItems := try! updatedFile.get("children")! as readonly SerialValue[]
-  updatedPinned := try! updatedItems[0] as SerialObject
+  updatedRoot := (parseJsonValue(app.menuSnapshot()) as SerialObject)!
+  updatedMenus := (updatedRoot.get("menus")! as readonly SerialValue[])!
+  updatedFile := (updatedMenus[2] as SerialObject)!
+  updatedItems := (updatedFile.get("children")! as readonly SerialValue[])!
+  updatedPinned := (updatedItems[0] as SerialObject)!
   Assert.equal(updatedPinned.get("enabled")!, true)
   Assert.equal(updatedPinned.get("checked")!, false)
 
@@ -380,10 +380,10 @@ export function testNativeWindowMenuListsShownWindows(): none {
   window := NativeWindow.create("Menu Test Window", 240, 160, true)
   window.show()
 
-  root := try! parseJsonValue(app.menuSnapshot()) as SerialObject
-  menus := try! root.get("menus")! as readonly SerialValue[]
-  windowMenu := try! menus[3] as SerialObject
-  items := try! windowMenu.get("children")! as readonly SerialValue[]
+  root := (parseJsonValue(app.menuSnapshot()) as SerialObject)!
+  menus := (root.get("menus")! as readonly SerialValue[])!
+  windowMenu := (menus[3] as SerialObject)!
+  items := (windowMenu.get("children")! as readonly SerialValue[])!
   let found = false
   for value of items {
     item := value as SerialObject else { continue }
@@ -499,7 +499,7 @@ export function testAdditionalControlsParticipateInLayout(): none {
 }
 
 export function testFormControlsParticipateInLayout(): none {
-  date := try! Date.create(2026, 9, 3)
+  date := Date.create(2026, 9, 3)!
   controls := Column([
     TextArea("Notes", "Hello", 60.0),
     RadioGroup("Delivery", ["Email", "Post"], "Email"),
