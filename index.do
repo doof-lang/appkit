@@ -5,13 +5,17 @@ export {
   runApp,
   saveFile,
   setAppMenus,
+  setActivationPolicy,
   setOpenFilesHandler,
+  setQuitHandler,
+  setReopenHandler,
   showAlert,
 } from "./app"
 export {
   AboutMenuItem,
   ApplicationMenu,
   BringAllToFrontMenuItem,
+  CloseWindowMenuItem,
   CopyMenuItem,
   CustomizeToolbarMenuItem,
   CutMenuItem,
@@ -44,7 +48,7 @@ export {
   ZoomMenuItem,
 } from "./menu"
 export { Alert, AlertAction } from "./alert"
-export { AlertStyle, Axis, Color, FileDialogOptions, ToolbarDisplayMode } from "./types"
+export { ActivationPolicy, AlertStyle, Axis, ButtonRole, Color, FileDialogOptions, Tint, ToolbarDisplayMode } from "./types"
 export { Button, Checkbox, Picker, ProgressBar, SecureTextField, Slider, Text, TextField } from "./controls"
 export { SearchField, SegmentedControl, Separator, Spinner, Stepper, Switch } from "./additional_controls"
 export { ColorWell, ComboBox, DatePicker, RadioGroup, TextArea } from "./form_controls"
@@ -53,6 +57,7 @@ export { Sheet, SheetAction } from "./sheet"
 export { Toolbar, ToolbarFlexibleSpace, ToolbarItem, ToolbarSpace } from "./toolbar"
 export { Column, Row, ScrollView, SplitView, View, ViewElement } from "./view"
 export { ImageCanvas, ImageCanvasBackground } from "./image_canvas"
+export { Tile } from "./tile"
 
 export { GroupBox } from "./group_box"
 

@@ -1,6 +1,12 @@
 export enum Axis { Horizontal, Vertical }
 export enum AlertStyle { Informational, Warning, Critical }
 export enum ToolbarDisplayMode { Default, IconOnly, LabelOnly, IconAndLabel }
+// Default responds to Return and draws as the window's default button; Cancel responds to Escape.
+export enum ButtonRole { Normal, Default, Cancel }
+// System colors that adapt to appearance. Accent follows the user's accent color.
+export enum Tint { Accent, Blue, Purple, Orange, Teal, Green, Red, Pink, Yellow, Gray }
+// Accessory apps have no Dock icon or menu bar, for helpers and agents.
+export enum ActivationPolicy { Regular, Accessory }
 
 export struct Color {
   readonly red: double

@@ -1,5 +1,6 @@
 #include "native_appkit.hpp"
 #import <Cocoa/Cocoa.h>
+#import <objc/runtime.h>
 #if !__has_feature(objc_arc)
 #error "std/appkit requires Objective-C ARC (-fobjc-arc)"
 #endif
@@ -65,6 +66,15 @@ static NSColor* colorFromRGBA(double red, double green, double blue, double alph
 @end
 
 #include "native_split_view.hpp"
+
+static NSImage* symbolImage(NSString* name, CGFloat pointSize, NSFontWeight weight, NSColor* color) {
+    if (name.length == 0) return nil;
+    NSImageSymbolConfiguration* configuration = [NSImageSymbolConfiguration configurationWithPointSize:pointSize weight:weight];
+    if (color) configuration = [configuration configurationByApplyingConfiguration:[NSImageSymbolConfiguration configurationWithPaletteColors:@[color]]];
+    return [[NSImage imageWithSystemSymbolName:name accessibilityDescription:nil] imageWithSymbolConfiguration:configuration];
+}
+
+#include "native_tile.hpp"
 
 @interface DoofImageCanvasView : NSView
 @property(nonatomic) doof::callback<void(double, double)> clickCallback;
@@ -449,9 +459,19 @@ static NSColor* colorFromRGBA(double red, double green, double blue, double alph
 
 namespace {
 bool appRunning = false;
+bool appStopsWithLastWindow = true;
 int32_t shownWindows = 0;
 doof::callback<int32_t()> appDrain;
-void stopIfLastWindowClosed() { if (appRunning && shownWindows == 0) [NSApplication.sharedApplication stop:nil]; }
+void stopIfLastWindowClosed() { if (appRunning && appStopsWithLastWindow && shownWindows == 0) [NSApplication.sharedApplication stop:nil]; }
+char autofocusKey;
+
+NSView* autofocusView(NSView* view) {
+    if (objc_getAssociatedObject(view, &autofocusKey)) return view;
+    for (NSView* child in view.subviews) {
+        if (NSView* found = autofocusView(child)) return found;
+    }
+    return nil;
+}
 
 NSAlertStyle alertStyle(int32_t style) {
     if (style == 1) return NSAlertStyleWarning;
@@ -498,9 +518,18 @@ int32_t alertResponseIndex(NSModalResponse response, size_t buttonCount) {
 
 @interface DoofWindowDelegate : NSObject <NSWindowDelegate>
 @property(nonatomic) bool counted;
+@property(nonatomic) doof::callback<void()> closeHandler;
 @end
 @implementation DoofWindowDelegate
 - (void)windowWillClose:(NSNotification*)notification {
+    // Closed windows stay alive for reuse; release the autosave name so a
+    // replacement window can claim it. show() reclaims it.
+    NSWindow* window = (NSWindow*)notification.object;
+    if (window.frameAutosaveName.length > 0) {
+        [window saveFrameUsingName:window.frameAutosaveName];
+        [window setFrameAutosaveName:@""];
+    }
+    if (self.closeHandler) self.closeHandler.call();
     if (!self.counted) return;
     self.counted = false;
     [NSApplication.sharedApplication removeWindowsItem:(NSWindow*)notification.object];
@@ -513,10 +542,20 @@ int32_t alertResponseIndex(NSModalResponse response, size_t buttonCount) {
 @public
     doof::callback<void(std::shared_ptr<std::vector<std::string>>)> _openFilesHandler;
     std::shared_ptr<std::vector<std::string>> _pendingOpenFiles;
+    doof::callback<void()> _reopenHandler;
+    doof::callback<bool()> _quitHandler;
 }
 @end
 @implementation DoofAppDelegate
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)sender { return NO; }
+- (BOOL)applicationShouldHandleReopen:(NSApplication*)sender hasVisibleWindows:(BOOL)visible {
+    if (!visible && _reopenHandler) _reopenHandler.call();
+    return YES;
+}
+- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication*)sender {
+    if (_quitHandler && !_quitHandler.call()) return NSTerminateCancel;
+    return NSTerminateNow;
+}
 - (void)application:(NSApplication*)sender openFiles:(NSArray<NSString*>*)filenames {
     auto paths = std::make_shared<std::vector<std::string>>();
     paths->reserve(filenames.count);
@@ -769,6 +808,39 @@ void NativeView::setAction(doof::callback<void(std::string, bool)> handler) { if
 void NativeView::setValueAction(doof::callback<void(double)> handler) { auto target = [DoofValueTarget new]; target.callback = std::move(handler); impl_->target = target; if ([impl_->view respondsToSelector:@selector(setTarget:)]) [(id)impl_->view setTarget:target]; if ([impl_->view respondsToSelector:@selector(setAction:)]) [(id)impl_->view setAction:@selector(activate:)]; }
 void NativeView::setIndexAction(doof::callback<void(int32_t)> handler) { auto target = [DoofIndexTarget new]; target.callback = std::move(handler); impl_->target = target; if ([impl_->view respondsToSelector:@selector(setTarget:)]) [(id)impl_->view setTarget:target]; if ([impl_->view respondsToSelector:@selector(setAction:)]) [(id)impl_->view setAction:@selector(activate:)]; }
 void NativeView::setColorAction(doof::callback<void(double, double, double, double)> handler) { auto target = [DoofColorTarget new]; target.callback = std::move(handler); impl_->target = target; if ([impl_->view respondsToSelector:@selector(setTarget:)]) [(id)impl_->view setTarget:target]; if ([impl_->view respondsToSelector:@selector(setAction:)]) [(id)impl_->view setAction:@selector(activate:)]; }
+std::shared_ptr<NativeView> NativeView::tile(const std::string& title) { auto result = std::shared_ptr<NativeView>(new NativeView()); DoofTileButton* tile = [[DoofTileButton alloc] initWithFrame:NSMakeRect(0, 0, 250, 104)]; tile.title = ns(title); result->impl_->view = tile; return result; }
+void NativeView::setTile(int32_t tint, const std::string& symbol) { if ([impl_->view isKindOfClass:DoofTileButton.class]) [(DoofTileButton*)impl_->view setTint:tint symbol:ns(symbol)]; }
+void NativeView::setSymbol(const std::string& symbol) {
+    if (![impl_->view isKindOfClass:NSButton.class]) return;
+    NSButton* button = (NSButton*)impl_->view;
+    button.image = symbolImage(ns(symbol), 13, NSFontWeightRegular, nil);
+    button.imagePosition = symbol.empty() ? NSNoImage : NSImageLeading;
+    [button invalidateIntrinsicContentSize];
+}
+void NativeView::setButtonRole(int32_t role) {
+    if (![impl_->view isKindOfClass:NSButton.class]) return;
+    NSButton* button = (NSButton*)impl_->view;
+    button.keyEquivalent = role == 1 ? @"\r" : (role == 2 ? @"\033" : @"");
+    button.keyEquivalentModifierMask = 0;
+}
+void NativeView::setToolTip(const std::string& value) { impl_->view.toolTip = value.empty() ? nil : ns(value); }
+void NativeView::setAutofocus(bool value) {
+    NSView* view = impl_->textView ? impl_->textView : impl_->view;
+    objc_setAssociatedObject(view, &autofocusKey, value ? @YES : nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+std::string NativeView::controlSnapshot() {
+    NSMutableDictionary* value = [NSMutableDictionary dictionary];
+    if ([impl_->view isKindOfClass:NSButton.class]) {
+        NSButton* button = (NSButton*)impl_->view;
+        value[@"keyEquivalent"] = button.keyEquivalent ?: @"";
+        value[@"hasImage"] = @(button.image != nil);
+        value[@"tile"] = @([button isKindOfClass:DoofTileButton.class]);
+    }
+    value[@"toolTip"] = impl_->view.toolTip ?: @"";
+    value[@"autofocus"] = @(objc_getAssociatedObject(impl_->textView ? impl_->textView : impl_->view, &autofocusKey) != nil);
+    NSData* data = [NSJSONSerialization dataWithJSONObject:value options:NSJSONWritingSortedKeys error:nil];
+    return utf8([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
+}
 void NativeView::setAccessibility(const std::string& label, const std::string& help, const std::string& identifier) { NSView* view = impl_->outline ? impl_->outline : (impl_->textView ? impl_->textView : impl_->view); if (!label.empty()) view.accessibilityLabel = ns(label); if (!help.empty()) view.accessibilityHelp = ns(help); if (!identifier.empty()) view.accessibilityIdentifier = ns(identifier); }
 void NativeView::setTitleElement(std::shared_ptr<NativeView> label) { (impl_->textView ? impl_->textView : impl_->view).accessibilityTitleUIElement = label->impl_->view; }
 void NativeView::setPaneLayoutHandler(doof::callback<void(int32_t, double, double)> handler) { if (impl_->split && !impl_->disposed) impl_->split.callback = std::move(handler); }
@@ -839,6 +911,7 @@ struct NativeWindow::Impl {
     std::vector<DoofSheetButtonTarget*> sheetTargets;
     NSToolbar* toolbar = nil;
     DoofToolbarDelegate* toolbarDelegate = nil;
+    NSString* autosaveName = nil;
 };
 NativeWindow::NativeWindow() : impl_(std::make_shared<Impl>()) {}
 NativeWindow::~NativeWindow() = default;
@@ -901,7 +974,27 @@ void NativeWindow::setToolbarItemEnabled(int32_t index, bool enabled) {
     id item = impl_->toolbarDelegate.items[(NSUInteger)index];
     if ([item isKindOfClass:NSToolbarItem.class]) [(NSToolbarItem*)item setEnabled:enabled];
 }
-void NativeWindow::show() { bool firstShow = !impl_->delegate.counted; if (firstShow) { impl_->delegate.counted = true; shownWindows += 1; } [impl_->window makeKeyAndOrderFront:nil]; if (firstShow) [NSApplication.sharedApplication addWindowsItem:impl_->window title:impl_->window.title filename:NO]; [NSApplication.sharedApplication activateIgnoringOtherApps:YES]; [impl_->host setNeedsLayout:YES]; [impl_->host layoutSubtreeIfNeeded]; }
+void NativeWindow::setMinimumSize(double width, double height) { impl_->window.contentMinSize = NSMakeSize(width, height); }
+// AppKit restores and saves the frame under this name; new names start centered.
+void NativeWindow::setAutosaveName(const std::string& name) { impl_->autosaveName = ns(name); if (![impl_->window setFrameUsingName:impl_->autosaveName]) [impl_->window center]; [impl_->window setFrameAutosaveName:impl_->autosaveName]; }
+void NativeWindow::setCloseHandler(doof::callback<void()> handler) { impl_->delegate.closeHandler = std::move(handler); }
+static NSString* focusIdentifier(NSWindow* window) {
+    id responder = window.firstResponder;
+    // Editing text fields delegate to the shared field editor.
+    if ([responder isKindOfClass:NSTextView.class] && [(NSTextView*)responder isFieldEditor]) responder = [(NSTextView*)responder delegate];
+    return [responder isKindOfClass:NSView.class] ? ([(NSView*)responder accessibilityIdentifier] ?: @"") : @"";
+}
+std::string NativeWindow::windowSnapshot() {
+    NSDictionary* value = @{
+        @"autosaveName": impl_->window.frameAutosaveName ?: @"",
+        @"minWidth": @(impl_->window.contentMinSize.width),
+        @"minHeight": @(impl_->window.contentMinSize.height),
+        @"focusIdentifier": focusIdentifier(impl_->window),
+    };
+    NSData* data = [NSJSONSerialization dataWithJSONObject:value options:NSJSONWritingSortedKeys error:nil];
+    return utf8([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
+}
+void NativeWindow::show() { bool firstShow = !impl_->delegate.counted; if (firstShow) { impl_->delegate.counted = true; shownWindows += 1; } if (impl_->autosaveName.length > 0 && impl_->window.frameAutosaveName.length == 0) { [impl_->window setFrameUsingName:impl_->autosaveName]; [impl_->window setFrameAutosaveName:impl_->autosaveName]; } [impl_->window makeKeyAndOrderFront:nil]; if (firstShow) [NSApplication.sharedApplication addWindowsItem:impl_->window title:impl_->window.title filename:NO]; [NSApplication.sharedApplication activateIgnoringOtherApps:YES]; [impl_->host setNeedsLayout:YES]; [impl_->host layoutSubtreeIfNeeded]; if (firstShow) { if (NSView* focus = autofocusView(impl_->host)) [impl_->window makeFirstResponder:focus]; } }
 void NativeWindow::close() { [impl_->window close]; }
 bool NativeWindow::isShown() { return impl_->delegate.counted; }
 void NativeWindow::presentAlert(const std::string& title, const std::string& message, int32_t style, const std::shared_ptr<std::vector<std::string>>& buttonTitles, const std::shared_ptr<std::vector<bool>>& destructive, int32_t primaryIndex, int32_t cancelIndex, doof::callback<void(int32_t)> handler) {
@@ -1019,6 +1112,12 @@ void NativeApplication::quit() {
         location:NSZeroPoint modifierFlags:0 timestamp:0 windowNumber:0 context:nil
         subtype:0 data1:0 data2:0] atStart:YES];
 }
+void NativeApplication::setStopsWithLastWindow(bool value) { appStopsWithLastWindow = value; }
+void NativeApplication::setReopenHandler(doof::callback<void()> handler) { impl_->delegate->_reopenHandler = std::move(handler); }
+void NativeApplication::setQuitHandler(doof::callback<bool()> handler) { impl_->delegate->_quitHandler = std::move(handler); }
+void NativeApplication::setActivationPolicy(int32_t policy) {
+    [NSApplication.sharedApplication setActivationPolicy:policy == 1 ? NSApplicationActivationPolicyAccessory : NSApplicationActivationPolicyRegular];
+}
 void NativeApplication::requestWake() { dispatch_async(dispatch_get_main_queue(), ^{ if (appRunning && appDrain) appDrain.call(); }); }
 void NativeApplication::setOpenFilesHandler(doof::callback<void(std::shared_ptr<std::vector<std::string>>)> handler) {
     impl_->delegate->_openFilesHandler = std::move(handler);
@@ -1094,6 +1193,7 @@ void NativeApplication::setMenu(
             case 16: return @selector(performMiniaturize:);
             case 17: return @selector(performZoom:);
             case 18: return @selector(arrangeInFront:);
+            case 19: return @selector(performClose:);
             default: return nil;
         }
     };
@@ -1239,6 +1339,8 @@ void NativeApplication::performMenuItem(int32_t index) {
 }
 int32_t NativeApplication::alert(const std::string& title, const std::string& message, int32_t style, const std::shared_ptr<std::vector<std::string>>& buttonTitles, const std::shared_ptr<std::vector<bool>>& destructive, int32_t primaryIndex, int32_t cancelIndex) {
     NSAlert* alert = createAlert(title, message, style, buttonTitles, destructive, primaryIndex, cancelIndex);
+    // An application-modal alert needs an answer, so bring the app forward.
+    [NSApplication.sharedApplication activateIgnoringOtherApps:YES];
     return alertResponseIndex([alert runModal], buttonTitles->size());
 }
 std::shared_ptr<std::vector<std::string>> NativeApplication::openFile(const std::string& title, bool directories, bool multiple) { NSOpenPanel* panel = [NSOpenPanel openPanel]; panel.title = ns(title); panel.canChooseDirectories = directories; panel.canChooseFiles = !directories; panel.allowsMultipleSelection = multiple; auto result = std::make_shared<std::vector<std::string>>(); if ([panel runModal] != NSModalResponseOK) return result; for (NSURL* url in panel.URLs) result->push_back(utf8(url.path)); return result; }

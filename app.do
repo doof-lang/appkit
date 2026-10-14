@@ -7,7 +7,7 @@ import { NativeApplication, NativeWindow } from "./native"
 import { registerLayoutInvalidator, syncUI } from "./runtime"
 import { Sheet, prepareSheet } from "./sheet"
 import { Toolbar } from "./toolbar"
-import { FileDialogOptions } from "./types"
+import { ActivationPolicy, FileDialogOptions } from "./types"
 import { View, ViewElement, windowContent } from "./view"
 
 class ApplicationHolder {
@@ -48,13 +48,21 @@ export class Window {
     resizable: bool = true,
     children: ViewElement[] = [],
     toolbar: Toolbar | none = none,
+    minWidth: double = 0.0,
+    minHeight: double = 0.0,
+    autosaveName: string = "",
+    onClose: (): none = (): none => {},
   ): Window {
     if width <= 0 || height <= 0 { panic("window dimensions must be positive") }
+    if minWidth < 0.0 || minHeight < 0.0 { panic("window minimum dimensions must be non-negative") }
     content := windowContent(children)
     native := NativeWindow.create(title, width, height, resizable)
     window := Window { title, width, height, resizable, content, native }
     native.setRoot(content.nativeView())
     if toolbar != none { toolbar!.install(native) }
+    if minWidth > 0.0 || minHeight > 0.0 { native.setMinimumSize(minWidth, minHeight) }
+    if autosaveName != "" { native.setAutosaveName(autosaveName) }
+    native.setCloseHandler((): none => { onClose(); syncUI() })
     native.setLayoutHandler((nextWidth: double, nextHeight: double): none => window.relayout(nextWidth, nextHeight))
     registerLayoutInvalidator((): none => {
       if native.isShown() && window.lastWidth > 0.0 && window.lastHeight > 0.0 {
@@ -67,6 +75,8 @@ export class Window {
   show(): none { ensureDefaultAppMenus(); native.show() }
   close(): none { native.close() }
   isShown(): bool => native.isShown()
+  // Diagnostic JSON describing native window state, for tests.
+  nativeSnapshot(): string => native.windowSnapshot()
 
   showAlert(alert: Alert): none {
     if !native.isShown() { panic("showAlert requires a shown Window") }
@@ -119,13 +129,16 @@ export class Window {
   }
 }
 
-export function runApp(): none {
+// With untilLastWindowCloses=false the loop keeps running without windows,
+// until quitApp() or a confirmed Quit. Use it for apps that reopen windows.
+export function runApp(untilLastWindowCloses: bool = true): none {
   app := application()
   if !app.isMainThread() { panic("runApp must be called on the main thread") }
   if applicationHolder.hasRun || app.isRunning() { panic("runApp may only be called once") }
-  if app.shownWindowCount() == 0 { panic("runApp requires at least one shown Window") }
+  if untilLastWindowCloses && app.shownWindowCount() == 0 { panic("runApp requires at least one shown Window") }
   ensureDefaultAppMenus()
   applicationHolder.hasRun = true
+  app.setStopsWithLastWindow(untilLastWindowCloses)
   setMainEventWakeHandler((): none => app.requestWake())
   app.run((): int => {
     count := drainMainEventLoop()
@@ -136,6 +149,26 @@ export function runApp(): none {
 }
 
 export function quitApp(): none { application().quit() }
+
+// Called when the user reopens the app (for example from the Dock) while it
+// has no visible windows.
+export function setReopenHandler(handler: (): none): none {
+  application().setReopenHandler((): none => { handler(); syncUI() })
+}
+
+// Called when the user asks to quit (Quit menu, Dock, or logout). Return false
+// to keep running. Without a handler, Quit terminates immediately.
+export function setQuitHandler(handler: (): bool): none {
+  application().setQuitHandler((): bool => {
+    result := handler()
+    syncUI()
+    return result
+  })
+}
+
+export function setActivationPolicy(policy: ActivationPolicy): none {
+  application().setActivationPolicy(policy.value)
+}
 
 export function setOpenFilesHandler(handler: (paths: string[]): none): none {
   if applicationHolder.hasOpenFilesHandler { panic("setOpenFilesHandler may only be called once") }

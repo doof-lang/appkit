@@ -56,6 +56,7 @@ export import class NativeView from "native_appkit.hpp" as doof_appkit::NativeVi
   static scroll(): NativeView
   static text(value: string): NativeView
   static button(title: string): NativeView
+  static tile(title: string): NativeView
   static textField(value: string, placeholder: string): NativeView
   static secureTextField(value: string, placeholder: string): NativeView
   static checkbox(title: string, checked: bool): NativeView
@@ -98,6 +99,12 @@ export import class NativeView from "native_appkit.hpp" as doof_appkit::NativeVi
   setIndexAction(handler: (value: int): none): none
   setColorAction(handler: (red: double, green: double, blue: double, alpha: double): none): none
   setAccessibility(label: string, help: string, identifier: string): none
+  setTile(tint: int, symbol: string): none
+  setSymbol(symbol: string): none
+  setButtonRole(role: int): none
+  setToolTip(value: string): none
+  setAutofocus(value: bool): none
+  controlSnapshot(): string
   setTitleElement(label: NativeView): none
   setSplitPosition(index: int, position: double): none
   setPaneWeights(weights: double[]): none
@@ -142,6 +149,10 @@ export import class NativeWindow from "native_appkit.hpp" as doof_appkit::Native
     allowsCustomization: bool,
   ): none
   setToolbarItemEnabled(index: int, enabled: bool): none
+  setMinimumSize(width: double, height: double): none
+  setAutosaveName(name: string): none
+  setCloseHandler(handler: (): none): none
+  windowSnapshot(): string
   show(): none
   close(): none
   isShown(): bool
@@ -176,8 +187,12 @@ export import class NativeApplication from "native_appkit.hpp" as doof_appkit::N
   isMainThread(): bool
   shownWindowCount(): int
   run(drain: (): int): none
+  setStopsWithLastWindow(value: bool): none
   quit(): none
   requestWake(): none
+  setReopenHandler(handler: (): none): none
+  setQuitHandler(handler: (): bool): none
+  setActivationPolicy(policy: int): none
   setOpenFilesHandler(handler: (paths: string[]): none): none
   // The numeric node, role, action, and modifier values originate in menu.do.
   // NativeApplication::setMenu maps the semantic action IDs to AppKit selectors.

@@ -10,10 +10,13 @@ native bridge types and runtime helpers are implementation details.
 
 | API | Contract |
 | --- | --- |
-| `Window(...)` | `title="Doof App"`, `width=800`, `height=600`, `resizable=true`, `children=[]`, `toolbar=none`; dimensions must be positive |
+| `Window(...)` | `title="Doof App"`, `width=800`, `height=600`, `resizable=true`, `children=[]`, `toolbar=none`, `minWidth=0.0`, `minHeight=0.0`, `autosaveName=""`, `onClose`; dimensions must be positive and minimums non-negative |
 | `window.show()` / `close()` / `isShown()` | Show, close, or inspect a window |
-| `runApp()` | Call once on the main thread, with at least one shown window; returns after the last window closes or `quitApp()` |
+| `runApp(untilLastWindowCloses=true)` | Call once on the main thread. By default it needs a shown window and returns after the last window closes or `quitApp()`; with `false` it keeps running without windows until `quitApp()` |
 | `quitApp()` | Requests termination of the application loop |
+| `setQuitHandler(handler)` | `handler(): bool` runs when the user asks to quit (menu, Dock, logout); return `false` to keep running |
+| `setReopenHandler(handler)` | Runs when the app is reopened, for example from the Dock, while no window is visible |
+| `setActivationPolicy(policy)` | `.Regular` (default) or `.Accessory`, which has no Dock icon or menu bar, for helpers |
 | `setAppMenus(menus)` | Configure once before `runApp`; replaces the complete menu specification |
 | `setOpenFilesHandler(handler)` | Register once before `runApp`; callback receives `string[]` paths from Finder/Dock open requests |
 | `window.showAlert(alert)` / `showSheet(sheet)` | Requires a shown window; only one attached modal at a time |
@@ -23,11 +26,14 @@ native bridge types and runtime helpers are implementation details.
 
 [Signatures and lifecycle checks](../app.do).
 
-Window title, dimensions, and resizability are construction settings. There
-are currently no public setters for window position, minimum/maximum size,
-restoration, or fullscreen. Fullscreen is available through the standard menu
-command. `OutlineView` displays hierarchical rows with selection and disclosure
-controls; `Table` displays flat rows and exposes no public selection API.
+Window title, dimensions, minimum content size, and resizability are
+construction settings. A non-empty `autosaveName` lets AppKit restore and save
+the window frame under that name; windows without a saved frame start centered.
+`onClose` runs whenever the window closes, by the user or `close()`. There are
+no public setters for window position, maximum size, or fullscreen. Fullscreen
+is available through the standard menu command. `OutlineView` displays
+hierarchical rows with selection and disclosure controls; `Table` displays flat
+rows and exposes no public selection API.
 
 `FileDialogOptions` defaults to `{ title: "", suggestedName: "",
 directories: false, multiple: false }`. `openFile` uses `title`, `directories`,
@@ -46,7 +52,8 @@ action callback. `hidden` and `enabled` are reactive booleans.
 | Control | Required arguments | State and action |
 | --- | --- | --- |
 | `Text` | reactive `value: string` | Read-only display |
-| `Button` | reactive `title: string` | `onClick(): none` |
+| `Button` | reactive `title: string` | `onClick(): none`; `role=.Normal`; `symbol=""` |
+| `Tile` | reactive `title: string` | `onClick(): none`; `symbol=""`, `tint=.Accent`, `toolTip=""` |
 | `Checkbox`, `Switch` | reactive `title: string` | reactive `checked=false`; `onChange(bool)` |
 | `TextField`, `SecureTextField`, `SearchField` | reactive `label: string` | reactive `value=""`; `onChange(string)`; fixed placeholder |
 | `TextArea` | reactive `label: string` | reactive `value=""`; `onChange(string)`; `minHeight=120.0` |
@@ -64,7 +71,16 @@ action callback. `hidden` and `enabled` are reactive booleans.
 | `Separator` | None | Only reactive `hidden` |
 
 [Basic signatures](../controls.do) · [Form signatures](../form_controls.do) ·
-[Additional signatures](../additional_controls.do).
+[Additional signatures](../additional_controls.do) · [Tile](../tile.do).
+
+`ButtonRole.Default` makes a button respond to Return and draw as the window's
+default button; `.Cancel` responds to Escape. `symbol` names an SF Symbol shown
+before the title. `Tile` is a large button with a tinted symbol badge and a
+wrapping title, for choosing between a few destinations; it highlights on
+hover and keeps native keyboard activation and accessibility. `Tint` values are
+adaptive system colors. `TextField` and `SecureTextField` accept
+`autofocus=false`; the first autofocus field becomes first responder when its
+window is first shown.
 
 `Text` has no `enabled` parameter. All controls except `Separator` accept
 `accessibilityLabel`, `accessibilityHelp`, and `accessibilityIdentifier`.
@@ -165,7 +181,8 @@ The module guide has focused examples for [menus](../README.md#menus),
 
 `MenuItem` takes `title` and `onSelect`; `enabled` and `checked` are reactive.
 `MenuShortcut` defaults to Command and accepts Command, Shift, Option, and
-Control modifiers. Use standard menu presets for native responder behavior.
+Control modifiers. Use standard menu presets for native responder behavior;
+`CloseWindowMenuItem()` closes the key window (⌘W), whichever library created it.
 An explicit menu bar must start with `ApplicationMenu`, unless it is empty.
 [All menu constructors](../menu.do).
 

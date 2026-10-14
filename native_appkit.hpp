@@ -68,6 +68,7 @@ public:
     static std::shared_ptr<NativeView> scroll();
     static std::shared_ptr<NativeView> text(const std::string& value);
     static std::shared_ptr<NativeView> button(const std::string& title);
+    static std::shared_ptr<NativeView> tile(const std::string& title);
     static std::shared_ptr<NativeView> textField(const std::string& value, const std::string& placeholder);
     static std::shared_ptr<NativeView> secureTextField(const std::string& value, const std::string& placeholder);
     static std::shared_ptr<NativeView> checkbox(const std::string& title, bool checked);
@@ -116,6 +117,12 @@ public:
     void setIndexAction(doof::callback<void(int32_t)> handler);
     void setColorAction(doof::callback<void(double, double, double, double)> handler);
     void setAccessibility(const std::string& label, const std::string& help, const std::string& identifier);
+    void setTile(int32_t tint, const std::string& symbol);
+    void setSymbol(const std::string& symbol);
+    void setButtonRole(int32_t role);
+    void setToolTip(const std::string& value);
+    void setAutofocus(bool value);
+    std::string controlSnapshot();
     void setTitleElement(std::shared_ptr<NativeView> label);
     void setSplitPosition(int32_t index, double position);
     void setPaneWeights(const std::shared_ptr<std::vector<double>>& weights);
@@ -167,6 +174,10 @@ public:
         bool allowsCustomization
     );
     void setToolbarItemEnabled(int32_t index, bool enabled);
+    void setMinimumSize(double width, double height);
+    void setAutosaveName(const std::string& name);
+    void setCloseHandler(doof::callback<void()> handler);
+    std::string windowSnapshot();
     void show();
     void close();
     bool isShown();
@@ -206,8 +217,12 @@ public:
     bool isMainThread();
     int32_t shownWindowCount();
     void run(doof::callback<int32_t()> drain);
+    void setStopsWithLastWindow(bool value);
     void quit();
     void requestWake();
+    void setReopenHandler(doof::callback<void()> handler);
+    void setQuitHandler(doof::callback<bool()> handler);
+    void setActivationPolicy(int32_t policy);
     void setOpenFilesHandler(doof::callback<void(std::shared_ptr<std::vector<std::string>>)> handler);
     void setMenu(
         const std::shared_ptr<std::vector<int32_t>>& nodeKinds,

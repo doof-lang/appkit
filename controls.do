@@ -1,5 +1,6 @@
 import { NativeView } from "./native"
 import { bindBool, bindDouble, bindString, initialDouble, initialString, syncUI } from "./runtime"
+import { ButtonRole } from "./types"
 import { Column, View, measuredControl } from "./view"
 
 export function Text(
@@ -29,8 +30,12 @@ export function Button(
   accessibilityLabel: string = "",
   accessibilityHelp: string = "",
   accessibilityIdentifier: string = "",
+  role: ButtonRole = .Normal,
+  symbol: string = "",
 ): View {
   native := NativeView.button(initialString(title))
+  native.setButtonRole(role.value)
+  if symbol != "" { native.setSymbol(symbol) }
   view := measuredControl(native)
   bindString(title, (next): none => native.setText(next))
   native.setAction((value: string, checked: bool): none => { onClick(); syncUI() })
@@ -67,9 +72,11 @@ export function TextField(
   accessibilityLabel: string = "",
   accessibilityHelp: string = "",
   accessibilityIdentifier: string = "",
+  autofocus: bool = false,
 ): View {
   labelView := Text(label)
   native := NativeView.textField(initialString(value), placeholder)
+  native.setAutofocus(autofocus)
   field := measuredControl(native)
   bindString(value, (next): none => native.setText(next))
   native.setAction((next: string, checked: bool): none => { onChange(next); syncUI() })
@@ -88,9 +95,11 @@ export function SecureTextField(
   accessibilityLabel: string = "",
   accessibilityHelp: string = "",
   accessibilityIdentifier: string = "",
+  autofocus: bool = false,
 ): View {
   labelView := Text(label)
   native := NativeView.secureTextField(initialString(value), placeholder)
+  native.setAutofocus(autofocus)
   field := measuredControl(native)
   bindString(value, (next): none => native.setText(next))
   native.setAction((next: string, checked: bool): none => { onChange(next); syncUI() })

@@ -38,6 +38,7 @@ readonly ACTION_TOGGLE_FULL_SCREEN = 15
 readonly ACTION_MINIMIZE = 16
 readonly ACTION_ZOOM = 17
 readonly ACTION_BRING_ALL_TO_FRONT = 18
+readonly ACTION_CLOSE = 19
 
 export enum MenuModifier { Command, Shift, Option, Control }
 
@@ -123,6 +124,7 @@ export function SelectAllMenuItem(): MenuItem => standardItem("Select All", ACTI
 export function ToggleToolbarMenuItem(): MenuItem => standardItem("Show Toolbar", ACTION_TOGGLE_TOOLBAR, shortcut("t", [.Command, .Option]))
 export function CustomizeToolbarMenuItem(): MenuItem => standardItem("Customize Toolbar…", ACTION_CUSTOMIZE_TOOLBAR)
 export function ToggleFullScreenMenuItem(): MenuItem => standardItem("Enter Full Screen", ACTION_TOGGLE_FULL_SCREEN, shortcut("f", [.Command, .Control]))
+export function CloseWindowMenuItem(): MenuItem => standardItem("Close", ACTION_CLOSE, shortcut("w"))
 export function MinimizeMenuItem(): MenuItem => standardItem("Minimize", ACTION_MINIMIZE, shortcut("m"))
 export function ZoomMenuItem(): MenuItem => standardItem("Zoom", ACTION_ZOOM)
 export function BringAllToFrontMenuItem(): MenuItem => standardItem("Bring All to Front", ACTION_BRING_ALL_TO_FRONT)
