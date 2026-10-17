@@ -410,7 +410,7 @@ controls := <Column>
   <TextArea label="Notes" minHeight=100.0/>
   <RadioGroup label="Delivery" options={["Email", "Post"]} selected="Email"/>
   <ComboBox label="City" options={["Sydney", "Melbourne"]}/>
-  <DatePicker label="Date" value={try! Date.create(2026, 9, 3)}/>
+  <DatePicker label="Date" value={Date.create(2026, 9, 3)!}/>
   <ColorWell label="Accent" value={Color { red: 0.2, green: 0.4, blue: 0.8 }}/>
   <Separator/>
   <Spinner accessibilityLabel="Loading results"/>
