@@ -32,7 +32,8 @@ file access, parsing, and other work in an appropriate action or worker.
 After a native action, the runtime evaluates bindings, applies changed values,
 and recomputes layout. It also synchronizes after queued `std/event` work.
 Arbitrary background assignments are not a UI notification mechanism. Deliver
-worker results through a main-loop channel and update UI state in its handler.
+worker results by posting a callback created on the main actor, and update UI
+state in that callback.
 `runApp()` integrates that queue; do not start a second `runMainEventLoop()`.
 The [timer recipe](cookbook/files-and-events.md#update-ui-from-a-timer) shows this
 integration without a background worker.

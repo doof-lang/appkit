@@ -99,5 +99,5 @@ function main(): none {
 Watch the count advance, pause it, reset it, and close the window. Cancel the
 timer after `runApp` returns to release repeating work. Timer ticks are not a
 precise elapsed-time measurement; callbacks may be delayed by other work.
-Long-running actions block input and repainting, so use a worker plus a
-[`std/event` channel](../../../event/README.md) for expensive operations.
+Long-running actions block input and repainting, so run expensive operations
+in a worker and `post` a root-created callback to deliver the result.
