@@ -1093,7 +1093,7 @@ void NativeWindow::presentSheet(const std::string& title, int32_t width, int32_t
 
 struct NativeApplication::Impl {
     DoofAppDelegate* delegate = nil;
-    std::vector<DoofTarget*> menuTargets;
+    NSMutableArray* menuRetained = nil;
     std::vector<NSMenuItem*> menuItems;
 };
 NativeApplication::NativeApplication() : impl_(std::make_shared<Impl>()) { NSApplication* app = NSApplication.sharedApplication; [app setActivationPolicy:NSApplicationActivationPolicyRegular]; impl_->delegate = [DoofAppDelegate new]; app.delegate = impl_->delegate; }
@@ -1127,6 +1127,226 @@ void NativeApplication::setOpenFilesHandler(doof::callback<void(std::shared_ptr<
         impl_->delegate->_openFilesHandler.call(paths);
     }
 }
+} // namespace doof_appkit
+
+// Node arrays shared by setMenu and populateMenu. menuRoles is absent for
+// dynamic contents, which may only hold ordinary menus.
+struct MenuNodes {
+    const std::vector<int32_t>& nodeKinds;
+    const std::vector<int32_t>& parentIndices;
+    const std::vector<int32_t>* menuRoles;
+    const std::vector<int32_t>& actions;
+    const std::vector<std::string>& titles;
+    const std::vector<std::string>& keys;
+    const std::vector<int32_t>& modifierMasks;
+    const std::vector<bool>& enabled;
+    const std::vector<bool>& checked;
+    const std::vector<int32_t>& handlerIndices;
+    const std::vector<doof::callback<void(std::string, bool)>>& handlers;
+    const std::vector<int32_t>& builderIndices;
+    const std::vector<doof::callback<void(int32_t)>>& providers;
+};
+
+// These values mirror ACTION_* in menu.do. They are semantic action IDs
+// carried by each prepared node, not the node's index. A nil target lets
+// AppKit route the selector through the responder chain and validate it for
+// the current text field, window, or application context.
+static SEL menuActionSelector(int32_t action) {
+    switch (action) {
+        // Standard Application menu commands.
+        case 1: return @selector(orderFrontStandardAboutPanel:);
+        case 2: return @selector(hide:);
+        case 3: return @selector(hideOtherApplications:);
+        case 4: return @selector(unhideAllApplications:);
+        case 5: return @selector(terminate:);
+        // Standard Edit commands target the active control's responder.
+        case 6: return @selector(undo:);
+        case 7: return @selector(redo:);
+        case 8: return @selector(cut:);
+        case 9: return @selector(copy:);
+        case 10: return @selector(paste:);
+        case 11: return @selector(delete:);
+        case 12: return @selector(selectAll:);
+        // Standard View commands target the active window and its toolbar.
+        case 13: return @selector(toggleToolbarShown:);
+        case 14: return @selector(runToolbarCustomizationPalette:);
+        case 15: return @selector(toggleFullScreen:);
+        // Standard Window commands target or arrange application windows.
+        case 16: return @selector(performMiniaturize:);
+        case 17: return @selector(performZoom:);
+        case 18: return @selector(arrangeInFront:);
+        case 19: return @selector(performClose:);
+        default: return nil;
+    }
+}
+
+static NSString* menuApplicationName() {
+    NSString* name = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleDisplayName"];
+    if (name.length == 0) name = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleName"];
+    if (name.length == 0) name = NSProcessInfo.processInfo.processName;
+    if (name.length == 0) name = @"App";
+    return name;
+}
+
+@class DoofMenuDelegate;
+static int32_t nextDynamicMenuId = 1;
+// Weak values: each delegate is owned by the generation that created its menu,
+// so replacing that generation retires its ID.
+static NSMapTable<NSNumber*, DoofMenuDelegate*>* dynamicMenus() {
+    static NSMapTable* table = [NSMapTable strongToWeakObjectsMapTable];
+    return table;
+}
+
+// Delegate of a dynamic menu. AppKit calls menuNeedsUpdate: before showing the
+// menu and before searching it for key equivalents; the provider answers by
+// calling populateMenu with this menu's ID, replacing the previous generation.
+@interface DoofMenuDelegate : NSObject <NSMenuDelegate>
+@property(nonatomic) int32_t menuId;
+@property(nonatomic) doof::callback<void(int32_t)> provider;
+@property(nonatomic, strong) NSMutableArray* retained;
+@property(nonatomic, weak) NSMenu* menu;
+@property(nonatomic) BOOL populating;
+@end
+static NSMenuItem* menuItemForKeyEquivalent(NSMenu* menu, NSEvent* event);
+
+@implementation DoofMenuDelegate
+- (void)menuNeedsUpdate:(NSMenu*)menu {
+    if (self.populating) return;
+    self.populating = YES;
+    self.provider.call(self.menuId);
+    self.populating = NO;
+}
+// AppKit does not populate delegate menus before searching them for key
+// equivalents, so populate here and search the current generation.
+- (BOOL)menuHasKeyEquivalent:(NSMenu*)menu forEvent:(NSEvent*)event target:(id*)target action:(SEL*)action {
+    NSMenuItem* item = menuItemForKeyEquivalent(menu, event);
+    if (!item) return NO;
+    *target = item.target;
+    *action = item.action;
+    return YES;
+}
+@end
+
+static void refreshDynamicMenu(NSMenu* menu) {
+    if ([menu.delegate isKindOfClass:DoofMenuDelegate.class]) [(DoofMenuDelegate*)menu.delegate menuNeedsUpdate:menu];
+}
+
+// Finds the enabled item in menu or its submenus whose key equivalent matches
+// event, populating dynamic menus on the way. An uppercase key equivalent
+// implies Shift, as it does for AppKit's own matching.
+static NSMenuItem* menuItemForKeyEquivalent(NSMenu* menu, NSEvent* event) {
+    NSEventModifierFlags relevant = NSEventModifierFlagCommand | NSEventModifierFlagShift |
+        NSEventModifierFlagOption | NSEventModifierFlagControl;
+    NSEventModifierFlags flags = event.modifierFlags & relevant;
+    NSString* characters = event.charactersIgnoringModifiers.lowercaseString;
+    if (characters.length == 0) return nil;
+    refreshDynamicMenu(menu);
+    [menu update];
+    for (NSMenuItem* item in menu.itemArray) {
+        if (item.hidden) continue;
+        if (item.submenu) {
+            NSMenuItem* found = menuItemForKeyEquivalent(item.submenu, event);
+            if (found) return found;
+            continue;
+        }
+        NSString* key = item.keyEquivalent;
+        if (key.length == 0 || !item.enabled || !item.action) continue;
+        NSEventModifierFlags mask = item.keyEquivalentModifierMask & relevant;
+        if (![key isEqualToString:key.lowercaseString]) mask |= NSEventModifierFlagShift;
+        if (mask == flags && [key.lowercaseString isEqualToString:characters]) return item;
+    }
+    return nil;
+}
+
+// Builds nodes into container (parent index -1). Targets and dynamic-menu
+// delegates are added to retained, which keeps them alive for as long as this
+// generation of items. indexed, when present, records each item by node index.
+static void buildMenuNodes(NSMenu* container, const MenuNodes& nodes, NSMutableArray* retained, std::vector<NSMenuItem*>* indexed) {
+    NSApplication* app = NSApplication.sharedApplication;
+    size_t count = nodes.nodeKinds.size();
+    NSString* applicationName = menuApplicationName();
+    NSMutableArray* nativeMenus = [NSMutableArray arrayWithCapacity:count];
+    for (size_t index = 0; index < count; ++index) [nativeMenus addObject:NSNull.null];
+    auto menuAt = [&](int32_t index) -> NSMenu* {
+        if (index < 0) return container;
+        if ((size_t)index >= nativeMenus.count) return nil;
+        id value = nativeMenus[(NSUInteger)index];
+        return [value isKindOfClass:NSMenu.class] ? (NSMenu*)value : nil;
+    };
+
+    for (size_t index = 0; index < count; ++index) {
+        int32_t kind = nodes.nodeKinds[index];
+        int32_t parentIndex = index < nodes.parentIndices.size() ? nodes.parentIndices[index] : -1;
+        int32_t role = nodes.menuRoles && index < nodes.menuRoles->size() ? (*nodes.menuRoles)[index] : 0;
+        NSString* title = index < nodes.titles.size() ? ns(nodes.titles[index]) : @"";
+        NSMenu* parent = menuAt(parentIndex);
+        if (!parent) continue;
+
+        // Node kinds and menu roles mirror NODE_* and MENU_* in menu.do. Menu
+        // roles are significant beyond presentation: assigning these properties
+        // lets NSApplication manage Services, windows, and Help content.
+        if (kind == 0) {
+            if (role == 1) title = applicationName;
+            NSMenu* menu = [[NSMenu alloc] initWithTitle:title];
+            NSMenuItem* root = [[NSMenuItem alloc] initWithTitle:title action:nil keyEquivalent:@""];
+            root.submenu = menu;
+            [parent addItem:root];
+            nativeMenus[(NSUInteger)index] = menu;
+            if (role == 2) app.servicesMenu = menu;
+            else if (role == 3) app.windowsMenu = menu;
+            else if (role == 4) app.helpMenu = menu;
+            int32_t builderIndex = index < nodes.builderIndices.size() ? nodes.builderIndices[index] : -1;
+            if (builderIndex >= 0 && (size_t)builderIndex < nodes.providers.size()) {
+                DoofMenuDelegate* delegate = [DoofMenuDelegate new];
+                delegate.menuId = nextDynamicMenuId++;
+                delegate.provider = nodes.providers[(size_t)builderIndex];
+                delegate.retained = [NSMutableArray array];
+                delegate.menu = menu;
+                menu.delegate = delegate;
+                [dynamicMenus() setObject:delegate forKey:@(delegate.menuId)];
+                [retained addObject:delegate];
+            }
+            continue;
+        }
+        if (kind == 2) {
+            [parent addItem:NSMenuItem.separatorItem];
+            continue;
+        }
+
+        int32_t action = index < nodes.actions.size() ? nodes.actions[index] : 0;
+        if (action == 1) title = [@"About " stringByAppendingString:applicationName];
+        else if (action == 2) title = [@"Hide " stringByAppendingString:applicationName];
+        else if (action == 5) title = [@"Quit " stringByAppendingString:applicationName];
+        NSString* key = index < nodes.keys.size() ? ns(nodes.keys[index]) : @"";
+        SEL selector = action == 0 ? @selector(activate:) : menuActionSelector(action);
+        NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:title action:selector keyEquivalent:key];
+        // Modifier bits mirror modifierMask in menu.do: Command=1, Shift=2,
+        // Option=4, and Control=8.
+        int32_t mask = index < nodes.modifierMasks.size() ? nodes.modifierMasks[index] : 0;
+        NSEventModifierFlags nativeMask = 0;
+        if (mask & 1) nativeMask |= NSEventModifierFlagCommand;
+        if (mask & 2) nativeMask |= NSEventModifierFlagShift;
+        if (mask & 4) nativeMask |= NSEventModifierFlagOption;
+        if (mask & 8) nativeMask |= NSEventModifierFlagControl;
+        item.keyEquivalentModifierMask = nativeMask;
+        item.state = index < nodes.checked.size() && nodes.checked[index] ? NSControlStateValueOn : NSControlStateValueOff;
+        if (action == 0) {
+            int32_t handlerIndex = index < nodes.handlerIndices.size() ? nodes.handlerIndices[index] : -1;
+            if (handlerIndex >= 0 && (size_t)handlerIndex < nodes.handlers.size()) {
+                DoofTarget* target = [DoofTarget new];
+                target.callback = nodes.handlers[(size_t)handlerIndex];
+                target.menuItemEnabled = index >= nodes.enabled.size() || nodes.enabled[index];
+                item.target = target;
+                [retained addObject:target];
+            }
+        }
+        if (indexed) (*indexed)[index] = item;
+        [parent addItem:item];
+    }
+}
+
+namespace doof_appkit {
+
 void NativeApplication::setMenu(
     const std::shared_ptr<std::vector<int32_t>>& nodeKinds,
     const std::shared_ptr<std::vector<int32_t>>& parentIndices,
@@ -1138,10 +1358,12 @@ void NativeApplication::setMenu(
     const std::shared_ptr<std::vector<bool>>& enabled,
     const std::shared_ptr<std::vector<bool>>& checked,
     const std::shared_ptr<std::vector<int32_t>>& handlerIndices,
-    const std::shared_ptr<std::vector<doof::callback<void(std::string, bool)>>>& handlers
+    const std::shared_ptr<std::vector<doof::callback<void(std::string, bool)>>>& handlers,
+    const std::shared_ptr<std::vector<int32_t>>& builderIndices,
+    const std::shared_ptr<std::vector<doof::callback<void(int32_t)>>>& providers
 ) {
     NSApplication* app = NSApplication.sharedApplication;
-    impl_->menuTargets.clear();
+    impl_->menuRetained = [NSMutableArray array];
     impl_->menuItems.assign(nodeKinds->size(), nil);
     app.servicesMenu = nil;
     app.windowsMenu = nil;
@@ -1151,118 +1373,42 @@ void NativeApplication::setMenu(
         return;
     }
 
-    NSString* applicationName = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleDisplayName"];
-    if (applicationName.length == 0) applicationName = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleName"];
-    if (applicationName.length == 0) applicationName = NSProcessInfo.processInfo.processName;
-    if (applicationName.length == 0) applicationName = @"App";
-
     NSMenu* main = [[NSMenu alloc] initWithTitle:@""];
-    NSMutableArray* nativeMenus = [NSMutableArray arrayWithCapacity:nodeKinds->size()];
-    for (size_t index = 0; index < nodeKinds->size(); ++index) [nativeMenus addObject:NSNull.null];
-
-    auto menuAt = [&](int32_t index) -> NSMenu* {
-        if (index < 0 || (size_t)index >= nativeMenus.count) return nil;
-        id value = nativeMenus[(NSUInteger)index];
-        return [value isKindOfClass:NSMenu.class] ? (NSMenu*)value : nil;
-    };
-    // These values mirror ACTION_* in menu.do. They are semantic action IDs
-    // carried by each prepared node, not the node's index. A nil target lets
-    // AppKit route the selector through the responder chain and validate it for
-    // the current text field, window, or application context.
-    auto actionSelector = [](int32_t action) -> SEL {
-        switch (action) {
-            // Standard Application menu commands.
-            case 1: return @selector(orderFrontStandardAboutPanel:);
-            case 2: return @selector(hide:);
-            case 3: return @selector(hideOtherApplications:);
-            case 4: return @selector(unhideAllApplications:);
-            case 5: return @selector(terminate:);
-            // Standard Edit commands target the active control's responder.
-            case 6: return @selector(undo:);
-            case 7: return @selector(redo:);
-            case 8: return @selector(cut:);
-            case 9: return @selector(copy:);
-            case 10: return @selector(paste:);
-            case 11: return @selector(delete:);
-            case 12: return @selector(selectAll:);
-            // Standard View commands target the active window and its toolbar.
-            case 13: return @selector(toggleToolbarShown:);
-            case 14: return @selector(runToolbarCustomizationPalette:);
-            case 15: return @selector(toggleFullScreen:);
-            // Standard Window commands target or arrange application windows.
-            case 16: return @selector(performMiniaturize:);
-            case 17: return @selector(performZoom:);
-            case 18: return @selector(arrangeInFront:);
-            case 19: return @selector(performClose:);
-            default: return nil;
-        }
-    };
-
-    for (size_t index = 0; index < nodeKinds->size(); ++index) {
-        int32_t kind = (*nodeKinds)[index];
-        int32_t parentIndex = index < parentIndices->size() ? (*parentIndices)[index] : -1;
-        int32_t role = index < menuRoles->size() ? (*menuRoles)[index] : 0;
-        NSString* title = index < titles->size() ? ns((*titles)[index]) : @"";
-        NSMenu* parent = menuAt(parentIndex);
-
-        // Node kinds and menu roles mirror NODE_* and MENU_* in menu.do. Menu
-        // roles are significant beyond presentation: assigning these properties
-        // lets NSApplication manage Services, windows, and Help content.
-        if (kind == 0) {
-            if (role == 1) title = applicationName;
-            NSMenu* menu = [[NSMenu alloc] initWithTitle:title];
-            NSMenuItem* root = [[NSMenuItem alloc] initWithTitle:title action:nil keyEquivalent:@""];
-            root.submenu = menu;
-            if (parent) [parent addItem:root];
-            else [main addItem:root];
-            nativeMenus[(NSUInteger)index] = menu;
-            if (role == 2) app.servicesMenu = menu;
-            else if (role == 3) app.windowsMenu = menu;
-            else if (role == 4) app.helpMenu = menu;
-            continue;
-        }
-        if (!parent) continue;
-        if (kind == 2) {
-            [parent addItem:NSMenuItem.separatorItem];
-            continue;
-        }
-
-        int32_t action = index < actions->size() ? (*actions)[index] : 0;
-        if (action == 1) title = [@"About " stringByAppendingString:applicationName];
-        else if (action == 2) title = [@"Hide " stringByAppendingString:applicationName];
-        else if (action == 5) title = [@"Quit " stringByAppendingString:applicationName];
-        NSString* key = index < keys->size() ? ns((*keys)[index]) : @"";
-        SEL selector = action == 0 ? @selector(activate:) : actionSelector(action);
-        NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:title action:selector keyEquivalent:key];
-        // Modifier bits mirror modifierMask in menu.do: Command=1, Shift=2,
-        // Option=4, and Control=8.
-        int32_t mask = index < modifierMasks->size() ? (*modifierMasks)[index] : 0;
-        NSEventModifierFlags nativeMask = 0;
-        if (mask & 1) nativeMask |= NSEventModifierFlagCommand;
-        if (mask & 2) nativeMask |= NSEventModifierFlagShift;
-        if (mask & 4) nativeMask |= NSEventModifierFlagOption;
-        if (mask & 8) nativeMask |= NSEventModifierFlagControl;
-        item.keyEquivalentModifierMask = nativeMask;
-        item.state = index < checked->size() && (*checked)[index] ? NSControlStateValueOn : NSControlStateValueOff;
-        if (action == 0) {
-            int32_t handlerIndex = index < handlerIndices->size() ? (*handlerIndices)[index] : -1;
-            if (handlerIndex >= 0 && (size_t)handlerIndex < handlers->size()) {
-                DoofTarget* target = [DoofTarget new];
-                target.callback = (*handlers)[(size_t)handlerIndex];
-                target.menuItemEnabled = index >= enabled->size() || (*enabled)[index];
-                item.target = target;
-                impl_->menuTargets.push_back(target);
-            }
-        }
-        impl_->menuItems[index] = item;
-        [parent addItem:item];
-    }
+    MenuNodes nodes { *nodeKinds, *parentIndices, menuRoles.get(), *actions, *titles, *keys, *modifierMasks,
+        *enabled, *checked, *handlerIndices, *handlers, *builderIndices, *providers };
+    buildMenuNodes(main, nodes, impl_->menuRetained, &impl_->menuItems);
     app.mainMenu = main;
     if (app.windowsMenu) {
         for (NSWindow* window in app.windows) {
             if (window.isVisible && !window.excludedFromWindowsMenu) [app addWindowsItem:window title:window.title filename:NO];
         }
     }
+}
+void NativeApplication::populateMenu(
+    int32_t menuId,
+    const std::shared_ptr<std::vector<int32_t>>& nodeKinds,
+    const std::shared_ptr<std::vector<int32_t>>& parentIndices,
+    const std::shared_ptr<std::vector<int32_t>>& actions,
+    const std::shared_ptr<std::vector<std::string>>& titles,
+    const std::shared_ptr<std::vector<std::string>>& keys,
+    const std::shared_ptr<std::vector<int32_t>>& modifierMasks,
+    const std::shared_ptr<std::vector<bool>>& enabled,
+    const std::shared_ptr<std::vector<bool>>& checked,
+    const std::shared_ptr<std::vector<int32_t>>& handlerIndices,
+    const std::shared_ptr<std::vector<doof::callback<void(std::string, bool)>>>& handlers,
+    const std::shared_ptr<std::vector<int32_t>>& builderIndices,
+    const std::shared_ptr<std::vector<doof::callback<void(int32_t)>>>& providers
+) {
+    DoofMenuDelegate* delegate = [dynamicMenus() objectForKey:@(menuId)];
+    NSMenu* menu = delegate.menu;
+    if (!menu) return;
+    [menu removeAllItems];
+    NSMutableArray* retained = [NSMutableArray array];
+    MenuNodes nodes { *nodeKinds, *parentIndices, nullptr, *actions, *titles, *keys, *modifierMasks,
+        *enabled, *checked, *handlerIndices, *handlers, *builderIndices, *providers };
+    buildMenuNodes(menu, nodes, retained, nullptr);
+    // Releasing the previous generation retires its nested dynamic menus.
+    delegate.retained = retained;
 }
 void NativeApplication::setMenuItemEnabled(int32_t index, bool enabled) {
     if (index < 0 || (size_t)index >= impl_->menuItems.size()) return;
@@ -1296,6 +1442,7 @@ std::string NativeApplication::menuSnapshot() {
             value[@"enabled"] = @(item.enabled);
             value[@"checked"] = @(item.state == NSControlStateValueOn);
             if (item.submenu) {
+                refreshDynamicMenu(item.submenu);
                 NSString* role = @"menu";
                 if (item.submenu == app.servicesMenu) role = @"services";
                 else if (item.submenu == app.windowsMenu) role = @"window";
@@ -1323,6 +1470,7 @@ std::string NativeApplication::menuSnapshot() {
         else if (item.submenu == app.helpMenu) role = @"help";
         value[@"role"] = role;
         NSMutableArray* children = [NSMutableArray array];
+        if (item.submenu) refreshDynamicMenu(item.submenu);
         if (item.submenu) recursiveAppend(item.submenu, children);
         value[@"children"] = children;
         [menus addObject:value];
@@ -1336,6 +1484,31 @@ void NativeApplication::performMenuItem(int32_t index) {
     if (index < 0 || (size_t)index >= impl_->menuItems.size()) return;
     NSMenuItem* item = impl_->menuItems[(size_t)index];
     if (item && item.action) [NSApplication.sharedApplication sendAction:item.action to:item.target from:item];
+}
+bool NativeApplication::performMenuPath(const std::shared_ptr<std::vector<std::string>>& path) {
+    NSMenu* menu = NSApplication.sharedApplication.mainMenu;
+    for (size_t index = 0; index < path->size(); ++index) {
+        if (!menu) return false;
+        refreshDynamicMenu(menu);
+        [menu update];
+        NSMenuItem* item = [menu itemWithTitle:ns((*path)[index])];
+        if (!item) return false;
+        if (index + 1 < path->size()) { menu = item.submenu; continue; }
+        if (!item.enabled || !item.action) return false;
+        return [NSApplication.sharedApplication sendAction:item.action to:item.target from:item];
+    }
+    return false;
+}
+bool NativeApplication::performMenuKeyEquivalent(const std::string& key, int32_t modifierMask) {
+    NSEventModifierFlags flags = 0;
+    if (modifierMask & 1) flags |= NSEventModifierFlagCommand;
+    if (modifierMask & 2) flags |= NSEventModifierFlagShift;
+    if (modifierMask & 4) flags |= NSEventModifierFlagOption;
+    if (modifierMask & 8) flags |= NSEventModifierFlagControl;
+    NSEvent* event = [NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:flags
+        timestamp:0 windowNumber:0 context:nil characters:ns(key) charactersIgnoringModifiers:ns(key)
+        isARepeat:NO keyCode:0];
+    return [NSApplication.sharedApplication.mainMenu performKeyEquivalent:event];
 }
 int32_t NativeApplication::alert(const std::string& title, const std::string& message, int32_t style, const std::shared_ptr<std::vector<std::string>>& buttonTitles, const std::shared_ptr<std::vector<bool>>& destructive, int32_t primaryIndex, int32_t cancelIndex) {
     NSAlert* alert = createAlert(title, message, style, buttonTitles, destructive, primaryIndex, cancelIndex);

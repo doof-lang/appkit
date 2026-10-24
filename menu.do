@@ -63,7 +63,17 @@ export type MenuElement = Menu | MenuItem | MenuSeparator
 export class Menu {
   readonly title: string
   children: MenuElement[] = []
+  // When set, the menu's contents come from calling build each time AppKit
+  // opens the menu or searches it for a key equivalent, and children must be
+  // empty. Enabled and checked getters inside are read at that moment.
+  build: ((): MenuElement[]) | none = none
   private readonly role: int = MENU_NORMAL
+}
+
+// A menu whose contents are regenerated from build each time it opens, for
+// lists such as recent items or connections that change while the app runs.
+export function DynamicMenu(title: string, build: (): MenuElement[]): Menu {
+  return Menu { title, build }
 }
 
 function specialMenu(title: string, role: int, children: MenuElement[]): Menu {
@@ -189,6 +199,8 @@ export class PreparedMenus {
   checked: bool[] = []
   handlerIndices: int[] = []
   handlers: ((value: string, checked: bool): none)[] = []
+  builderIndices: int[] = []
+  builders: ((): MenuElement[])[] = []
   private reactiveItems: MenuItem[] = []
   private reactiveIndices: int[] = []
 }
@@ -198,6 +210,9 @@ class MenuValidation {
   let services = 0
   let windows = 0
   let helps = 0
+  // Dynamic contents are rebuilt on every open, so they carry no reactive
+  // bindings and may not contain menus with an application role.
+  let dynamic = false
 }
 
 function modifierMask(value: MenuShortcut): int {
@@ -224,6 +239,7 @@ function appendNode(
   enabled: bool = true,
   checked: bool = false,
   handlerIndex: int = -1,
+  builderIndex: int = -1,
 ): int {
   index := prepared.nodeKinds.length
   prepared.nodeKinds.push(kind)
@@ -236,10 +252,11 @@ function appendNode(
   prepared.enabled.push(enabled)
   prepared.checked.push(checked)
   prepared.handlerIndices.push(handlerIndex)
+  prepared.builderIndices.push(builderIndex)
   return index
 }
 
-function appendItem(prepared: PreparedMenus, item: MenuItem, parentIndex: int): none {
+function appendItem(prepared: PreparedMenus, item: MenuItem, parentIndex: int, dynamic: bool): none {
   if item.action == ACTION_CUSTOM && item.title.trim() == "" { panic("menu item titles must not be empty") }
   let key = ""
   let modifiers = 0
@@ -256,7 +273,7 @@ function appendItem(prepared: PreparedMenus, item: MenuItem, parentIndex: int): 
     prepared, NODE_ITEM, parentIndex, MENU_NORMAL, item.action, item.title,
     key, modifiers, initialBool(item.enabled), initialBool(item.checked), handlerIndex,
   )
-  if item.action == ACTION_CUSTOM {
+  if item.action == ACTION_CUSTOM && !dynamic {
     prepared.reactiveItems.push(item)
     prepared.reactiveIndices.push(nodeIndex)
   }
@@ -271,6 +288,8 @@ function appendMenu(
   validation: MenuValidation,
 ): none {
   if menu.role == MENU_NORMAL && menu.title.trim() == "" { panic("menu titles must not be empty") }
+  if validation.dynamic && menu.role != MENU_NORMAL { panic("dynamic menus may only contain ordinary menus") }
+  if menu.build != none && menu.children.length > 0 { panic("a dynamic menu must not also have children") }
   if menu.role == MENU_APPLICATION {
     if depth != 0 { panic("ApplicationMenu must be a top-level menu") }
     validation.applications += 1
@@ -289,18 +308,37 @@ function appendMenu(
     if validation.helps > 1 { panic("a help menu may only appear once") }
   }
 
-  index := appendNode(prepared, NODE_MENU, parentIndex, menu.role, ACTION_CUSTOM, menu.title)
-  for child of menu.children {
+  let builderIndex = -1
+  if menu.build != none {
+    builderIndex = prepared.builders.length
+    prepared.builders.push(menu.build!)
+  }
+  index := appendNode(
+    prepared, NODE_MENU, parentIndex, menu.role, ACTION_CUSTOM, menu.title,
+    "", 0, true, false, -1, builderIndex,
+  )
+  appendChildren(prepared, menu.children, index, depth, menu.role, validation)
+}
+
+function appendChildren(
+  prepared: PreparedMenus,
+  children: MenuElement[],
+  parentIndex: int,
+  depth: int,
+  parentRole: int,
+  validation: MenuValidation,
+): none {
+  for child of children {
     childMenu := child as Menu else {
       childItem := child as MenuItem else {
         _ := child as MenuSeparator else { panic("invalid menu element") }
-        appendNode(prepared, NODE_SEPARATOR, index, MENU_NORMAL, ACTION_CUSTOM, "")
+        appendNode(prepared, NODE_SEPARATOR, parentIndex, MENU_NORMAL, ACTION_CUSTOM, "")
         continue
       }
-      appendItem(prepared, childItem, index)
+      appendItem(prepared, childItem, parentIndex, validation.dynamic)
       continue
     }
-    appendMenu(prepared, childMenu, index, depth + 1, menu.role, validation)
+    appendMenu(prepared, childMenu, parentIndex, depth + 1, parentRole, validation)
   }
 }
 
@@ -312,6 +350,42 @@ export function prepareAppMenus(menus: Menu[]): PreparedMenus {
   for menu of menus { appendMenu(prepared, menu, -1, 0, MENU_NORMAL, validation) }
   if validation.applications != 1 { panic("a nonempty menu bar requires one ApplicationMenu") }
   return prepared
+}
+
+// Prepares one generation of a dynamic menu's contents. Parent index -1 is the
+// dynamic menu itself.
+export function prepareDynamicMenu(children: MenuElement[]): PreparedMenus {
+  prepared := PreparedMenus {}
+  validation := MenuValidation { dynamic: true }
+  appendChildren(prepared, children, -1, 1, MENU_NORMAL, validation)
+  return prepared
+}
+
+function menuProviders(app: NativeApplication, prepared: PreparedMenus): ((menuId: int): none)[] {
+  providers: ((menuId: int): none)[] := []
+  for build of prepared.builders {
+    providers.push((menuId: int): none => populateDynamicMenu(app, menuId, build))
+  }
+  return providers
+}
+
+function populateDynamicMenu(app: NativeApplication, menuId: int, build: (): MenuElement[]): none {
+  prepared := prepareDynamicMenu(build())
+  app.populateMenu(
+    menuId,
+    prepared.nodeKinds,
+    prepared.parentIndices,
+    prepared.actions,
+    prepared.titles,
+    prepared.keys,
+    prepared.modifierMasks,
+    prepared.enabled,
+    prepared.checked,
+    prepared.handlerIndices,
+    prepared.handlers,
+    prepared.builderIndices,
+    menuProviders(app, prepared),
+  )
 }
 
 export function installAppMenus(app: NativeApplication, menus: Menu[]): none {
@@ -328,6 +402,8 @@ export function installAppMenus(app: NativeApplication, menus: Menu[]): none {
     prepared.checked,
     prepared.handlerIndices,
     prepared.handlers,
+    prepared.builderIndices,
+    menuProviders(app, prepared),
   )
   let reactiveIndex = 0
   for item of prepared.reactiveItems {

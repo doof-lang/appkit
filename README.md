@@ -257,6 +257,43 @@ standard item constructors such as `AboutMenuItem`, `SettingsMenuItem`,
 constructors provide native responder actions and conventional key equivalents.
 `SettingsMenuItem` takes an application callback for opening your settings UI.
 
+### Dynamic menus
+
+A menu whose contents depend on application state—recent documents, open
+connections, a list loaded from configuration—can supply a `build` function
+instead of fixed children. AppKit calls it each time the menu opens and each
+time it searches the menu for a key equivalent, so titles, shortcuts, and
+nesting always reflect the current state. Dynamic menus may contain items,
+separators, and ordinary submenus, including other dynamic menus:
+
+```doof
+import { DynamicMenu, Menu, MenuElement, MenuItem, MenuShortcut } from "std/appkit"
+
+function recentItems(): MenuElement[] {
+  items: MenuElement[] := []
+  for document of recentDocuments {
+    items.push(MenuItem { title: document.name, onSelect: (): none => open(document) })
+  }
+  if items.length == 0 {
+    items.push(MenuItem { title: "No Recent Documents", onSelect: (): none => {}, enabled: false })
+  }
+  return items
+}
+
+<Menu title="File">
+  <MenuItem title="Open…" onSelect=>openDocument()/>
+  {DynamicMenu("Open Recent", recentItems)}
+</Menu>
+```
+
+A top-level menu can be dynamic too. In markup, `<Menu title="Connections"
+build=>connectionItems()/>` is equivalent to `DynamicMenu`. Inside dynamic
+contents, `enabled` and `checked` getters are read when the menu is rebuilt
+rather than bound for later updates. Keep `build` cheap: it runs for every key
+equivalent the menu bar checks. Platform menus (`ApplicationMenu`,
+`ServicesMenu`, `WindowMenu`, `HelpMenu`) cannot be dynamic or appear inside
+dynamic contents.
+
 ## Toolbars
 
 Pass a `Toolbar` to a window to install a native `NSToolbar`. Toolbar items can

@@ -20,6 +20,7 @@ export {
   CustomizeToolbarMenuItem,
   CutMenuItem,
   DeleteMenuItem,
+  DynamicMenu,
   HelpMenu,
   HideMenuItem,
   HideOthersMenuItem,

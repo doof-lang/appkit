@@ -208,11 +208,34 @@ export import class NativeApplication from "native_appkit.hpp" as doof_appkit::N
     checked: bool[],
     handlerIndices: int[],
     handlers: ((value: string, checked: bool): none)[],
+    builderIndices: int[],
+    providers: ((menuId: int): none)[],
+  ): none
+  // Replaces the items of the dynamic menu that called its provider with menuId.
+  // Parent index -1 refers to that menu; builder indices select its providers.
+  populateMenu(
+    menuId: int,
+    nodeKinds: int[],
+    parentIndices: int[],
+    actions: int[],
+    titles: string[],
+    keys: string[],
+    modifierMasks: int[],
+    enabled: bool[],
+    checked: bool[],
+    handlerIndices: int[],
+    handlers: ((value: string, checked: bool): none)[],
+    builderIndices: int[],
+    providers: ((menuId: int): none)[],
   ): none
   setMenuItemEnabled(index: int, enabled: bool): none
   setMenuItemChecked(index: int, checked: bool): none
   menuSnapshot(): string
   performMenuItem(index: int): none
+  // Test hooks: activate an item by its title path, opening dynamic menus along
+  // the way, or dispatch a key equivalent through the main menu.
+  performMenuPath(path: string[]): bool
+  performMenuKeyEquivalent(key: string, modifierMask: int): bool
   alert(
     title: string,
     message: string,

@@ -235,12 +235,31 @@ public:
         const std::shared_ptr<std::vector<bool>>& enabled,
         const std::shared_ptr<std::vector<bool>>& checked,
         const std::shared_ptr<std::vector<int32_t>>& handlerIndices,
-        const std::shared_ptr<std::vector<doof::callback<void(std::string, bool)>>>& handlers
+        const std::shared_ptr<std::vector<doof::callback<void(std::string, bool)>>>& handlers,
+        const std::shared_ptr<std::vector<int32_t>>& builderIndices,
+        const std::shared_ptr<std::vector<doof::callback<void(int32_t)>>>& providers
+    );
+    void populateMenu(
+        int32_t menuId,
+        const std::shared_ptr<std::vector<int32_t>>& nodeKinds,
+        const std::shared_ptr<std::vector<int32_t>>& parentIndices,
+        const std::shared_ptr<std::vector<int32_t>>& actions,
+        const std::shared_ptr<std::vector<std::string>>& titles,
+        const std::shared_ptr<std::vector<std::string>>& keys,
+        const std::shared_ptr<std::vector<int32_t>>& modifierMasks,
+        const std::shared_ptr<std::vector<bool>>& enabled,
+        const std::shared_ptr<std::vector<bool>>& checked,
+        const std::shared_ptr<std::vector<int32_t>>& handlerIndices,
+        const std::shared_ptr<std::vector<doof::callback<void(std::string, bool)>>>& handlers,
+        const std::shared_ptr<std::vector<int32_t>>& builderIndices,
+        const std::shared_ptr<std::vector<doof::callback<void(int32_t)>>>& providers
     );
     void setMenuItemEnabled(int32_t index, bool enabled);
     void setMenuItemChecked(int32_t index, bool checked);
     std::string menuSnapshot();
     void performMenuItem(int32_t index);
+    bool performMenuPath(const std::shared_ptr<std::vector<std::string>>& path);
+    bool performMenuKeyEquivalent(const std::string& key, int32_t modifierMask);
     int32_t alert(
         const std::string& title,
         const std::string& message,

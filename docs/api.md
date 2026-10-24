@@ -184,6 +184,9 @@ The module guide has focused examples for [menus](../README.md#menus),
 Control modifiers. Use standard menu presets for native responder behavior;
 `CloseWindowMenuItem()` closes the key window (⌘W), whichever library created it.
 An explicit menu bar must start with `ApplicationMenu`, unless it is empty.
+`DynamicMenu(title, build)` (or `Menu { title, build }`) regenerates its contents
+from `build(): MenuElement[]` whenever the menu opens or its shortcuts are
+checked, for submenus and top-level menus that follow application state.
 [All menu constructors](../menu.do).
 
 `Toolbar` takes `children`, `displayMode=.Default`, and
