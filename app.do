@@ -20,8 +20,10 @@ class ApplicationHolder {
 applicationHolder := ApplicationHolder {}
 
 function application(): NativeApplication {
-  if applicationHolder.value == none { applicationHolder.value = NativeApplication.shared() }
-  return applicationHolder.value!
+  if cached := applicationHolder.value { return cached }
+  shared := NativeApplication.shared()
+  applicationHolder.value = shared
+  return shared
 }
 
 function ensureDefaultAppMenus(): none {
@@ -59,7 +61,7 @@ export class Window {
     native := NativeWindow.create(title, width, height, resizable)
     window := Window { title, width, height, resizable, content, native }
     native.setRoot(content.nativeView())
-    if toolbar != none { toolbar!.install(native) }
+    if bar := toolbar { bar.install(native) }
     if minWidth > 0.0 || minHeight > 0.0 { native.setMinimumSize(minWidth, minHeight) }
     if autosaveName != "" { native.setAutosaveName(autosaveName) }
     native.setCloseHandler((): none => { onClose(); syncUI() })

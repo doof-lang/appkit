@@ -260,9 +260,9 @@ function appendItem(prepared: PreparedMenus, item: MenuItem, parentIndex: int, d
   if item.action == ACTION_CUSTOM && item.title.trim() == "" { panic("menu item titles must not be empty") }
   let key = ""
   let modifiers = 0
-  if item.shortcut != none {
-    key = item.shortcut!.key
-    modifiers = modifierMask(item.shortcut!)
+  if shortcut := item.shortcut {
+    key = shortcut.key
+    modifiers = modifierMask(shortcut)
   }
   let handlerIndex = -1
   if item.action == ACTION_CUSTOM {
@@ -309,9 +309,9 @@ function appendMenu(
   }
 
   let builderIndex = -1
-  if menu.build != none {
+  if build := menu.build {
     builderIndex = prepared.builders.length
-    prepared.builders.push(menu.build!)
+    prepared.builders.push(build)
   }
   index := appendNode(
     prepared, NODE_MENU, parentIndex, menu.role, ACTION_CUSTOM, menu.title,

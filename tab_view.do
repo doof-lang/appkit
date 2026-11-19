@@ -64,11 +64,11 @@ export function TabView(
     let height = metrics[3]
     let contentMaxWidth: double | none = none
     let contentMaxHeight: double | none = none
-    if constraints.maxWidth != none {
-      contentMaxWidth = if constraints.maxWidth! > metrics[0] then constraints.maxWidth! - metrics[0] else 0.0
+    if maxWidth := constraints.maxWidth {
+      contentMaxWidth = if maxWidth > metrics[0] then maxWidth - metrics[0] else 0.0
     }
-    if constraints.maxHeight != none {
-      contentMaxHeight = if constraints.maxHeight! > metrics[1] then constraints.maxHeight! - metrics[1] else 0.0
+    if maxHeight := constraints.maxHeight {
+      contentMaxHeight = if maxHeight > metrics[1] then maxHeight - metrics[1] else 0.0
     }
     for tab of tabs {
       tab.content.prepareLayout()
